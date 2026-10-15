@@ -15,14 +15,15 @@ O **Docente360** é uma plataforma integrada para gestão operacional e pedagóg
 
 ---
 
-## 2. Perfis de Usuário e Matriz de Acesso (RBAC)
+## 2. Perfis de Usuário e Autenticação (Supabase Auth Oficial)
 
-| Perfil | Descrição e Responsabilidades | Permissões Principais |
-| :--- | :--- | :--- |
-| **Secretaria** | Responsável pela operação diária de frequência e alocação de docentes em sala. | • Registrar ausências em tempo real<br>• Alocar professores substitutos<br>• Classificar aulas vagas<br>• Pré-cadastrar justificativas informadas |
-| **Professor** | Docente da instituição com aulas atribuídas na grade. | • Consultar suas faltas registradas<br>• Fazer upload de atestados médicos/declarações<br>• Propor e acompanhar datas/horários para reposição de aulas |
-| **Coordenador Acadêmico** | Responsável pela gestão pedagógica, qualidade do ensino e cumprimento da carga horária. | • Visualizar dashboard de indicadores analíticos<br>• Filtrar ausências por turma, docente e disciplina<br>• Homologar planos de reposição de aula<br>• Exportar relatórios gerenciais em PDF |
-| **Administrador (Opcional/Técnico)** | Responsável pela parametrização inicial e suporte ao sistema. | • Gestão de usuários e permissões<br>• Cadastro/importação de turmas, docentes e disciplinas |
+O acesso ao sistema Docente360 é direcionado prioritariamente às equipes da **Secretaria** e da **Coordenação Acadêmica**, utilizando o serviço **Supabase Auth Oficial** para controle seguro de credenciais, sessões e segregação de telas (RBAC).
+
+| Perfil de Usuário | Descrição e Responsabilidades | Tipo de Acesso (Supabase Auth) | Permissões Principais |
+| :--- | :--- | :--- | :--- |
+| **Secretaria** | Responsável pela operação diária de frequência e alocação de docentes em sala. | Login próprio com email institucional e senha | • Registrar ausências em tempo real (RF01)<br>• Alocar professores substitutos (RF02)<br>• Classificar aulas vagas (RF02)<br>• Anexar comprovantes e pré-agendar reposições (RF03/RF04) |
+| **Coordenador Acadêmico** | Responsável pela gestão pedagógica, qualidade do ensino e cumprimento da carga horária. | Login próprio com email institucional e senha | • Visualizar dashboard de indicadores analíticos (RF05)<br>• Filtrar ausências por turma, docente e disciplina<br>• Homologar ou recusar planos de reposição de aula (RN03)<br>• Exportar relatórios gerenciais em PDF e CSV (RF06) |
+| **Administrador** | Gestão técnica e institucional do sistema. | Login master com email institucional e senha | • Criação e gerenciamento de contas de usuários da secretaria e coordenação<br>• Gestão de cadastros base (docentes, disciplinas e turmas) |
 
 ---
 
