@@ -1,0 +1,16 @@
+# Arquivos de configuração e ambiente
+.env
+.streamlit/secrets.toml
+
+# Ambientes virtuais
+.venv/
+venv/
+
+# Cache do Python
+__pycache__/
+*.pyc
+
+# Arquivos de build
+dist/
+build/
+*.egg-info/
