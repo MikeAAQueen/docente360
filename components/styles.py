@@ -63,12 +63,29 @@ def render_sidebar_user(supabase: Client, user_profile: dict):
         )
         st.markdown(f'<span class="user-badge {badge_class}">{perfil_usuario}</span>', unsafe_allow_html=True)
 
+        # Se for Administrador, exibe o seletor de navegação master na barra lateral
+        modulo_master = None
+        if perfil_usuario == "Administrador":
+            st.markdown("---")
+            st.markdown("#### 🧭 Navegação Master")
+            modulo_master = st.radio(
+                "Acessar Setor / Módulo:",
+                [
+                    "📌 Secretaria (Lançamento & Faltas)",
+                    "📊 Coordenação (Dashboard & Relatórios)",
+                    "👥 Painel Geral do Administrador"
+                ],
+                index=0
+            )
+
         st.markdown("---")
         if st.button("🚪 Sair do Sistema (Logout)", use_container_width=True):
             handle_logout(supabase)
 
         st.markdown("---")
         st.caption("🟢 Supabase Auth: **Autenticado**")
+
+    return modulo_master
 
 
 def render_header(perfil_usuario: str, nome_usuario: str, cargo_usuario: str):

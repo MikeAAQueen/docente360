@@ -39,18 +39,25 @@ nome_usuario = user_profile.get("nome", "Usuário")
 perfil_usuario = user_profile.get("perfil", "Secretaria")
 cargo_usuario = user_profile.get("cargo", "Equipe")
 
-# Barra lateral com identificação do usuário e logout
-render_sidebar_user(supabase, user_profile)
-
-# Cabeçalho da interface
-render_header(perfil_usuario, nome_usuario, cargo_usuario)
+# Barra lateral com identificação do usuário, logout e navegação master
+modulo_master = render_sidebar_user(supabase, user_profile)
 
 # Roteamento baseado no Perfil de Acesso (RBAC)
-if perfil_usuario == "Secretaria":
+if perfil_usuario == "Administrador":
+    render_header("Administrador — Acesso Total", nome_usuario, cargo_usuario)
+    if modulo_master == "📌 Secretaria (Lançamento & Faltas)":
+        st.info("💡 **Acesso Master:** Você está operando o módulo da **Secretaria**. Aqui você pode registrar faltas, alocar substitutos e anexar atestados.")
+        render_secretaria_view(supabase, user_profile)
+    elif modulo_master == "📊 Coordenação (Dashboard & Relatórios)":
+        st.info("💡 **Acesso Master:** Você está operando o módulo da **Coordenação Acadêmica**. Aqui você pode acompanhar indicadores, homologar reposições e emitir relatórios.")
+        render_coordenador_view(supabase, user_profile)
+    else:
+        render_admin_view(supabase, user_profile)
+elif perfil_usuario == "Secretaria":
+    render_header(perfil_usuario, nome_usuario, cargo_usuario)
     render_secretaria_view(supabase, user_profile)
 elif perfil_usuario == "Coordenador Acadêmico":
+    render_header(perfil_usuario, nome_usuario, cargo_usuario)
     render_coordenador_view(supabase, user_profile)
-elif perfil_usuario == "Administrador":
-    render_admin_view(supabase, user_profile)
 else:
     st.warning(f"Perfil de acesso '{perfil_usuario}' não reconhecido.")

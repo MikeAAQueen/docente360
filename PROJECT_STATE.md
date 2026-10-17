@@ -64,7 +64,7 @@ Abaixo está o detalhamento de cada requisito levantado no documento [`levantame
 | **Tabela de Usuários** | Sincronização entre `auth.users` e tabela de perfis de usuário com RLS. | ✅ **Concluído** | [`banco_dados.sql:65-119`](file:///d:/Projects/docente360/banco_dados.sql#L65-L119) |
 | **Secretaria** | Acesso restrito a operações diárias de ausências, substituições e atestados. | ✅ **Concluído** | [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py) |
 | **Coordenador Acadêmico** | Acesso restrito a dashboards, homologações pedagógicas e exportação de relatórios. | ✅ **Concluído** | [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py) |
-| **Administrador** | Gestão de contas e visão global do sistema. | 🔄 **Parcial** | [`views/admin.py`](file:///d:/Projects/docente360/views/admin.py) *(Listagem ativa; CRUD de turmas/docentes via UI ainda não implementado)* |
+| **Administrador** | Gestão de contas, cadastros base e visão global com alternador master entre todos os setores. | ✅ **Concluído** | [`views/admin.py`](file:///d:/Projects/docente360/views/admin.py) e [`components/styles.py`](file:///d:/Projects/docente360/components/styles.py) |
 
 ---
 
@@ -77,7 +77,7 @@ Abaixo está o detalhamento de cada requisito levantado no documento [`levantame
 | **RF03** | **Controle de Atestados e Comprovações** | ✅ **Concluído** | Upload de arquivos nos formatos `.pdf`, `.png`, `.jpg`, `.jpeg` com persistência direta no Supabase Storage (`bucket: atestados`) via [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py). |
 | **RF04** | **Planejamento e Acompanhamento de Reposição de Aulas** | ✅ **Concluído** | Secretaria pré-agenda reposição em [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py) e o Coordenador avalia, homologa ou recusa em [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py). |
 | **RF05** | **Dashboard de Indicadores em Tempo Real** | ✅ **Concluído** | Painel analítico em [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py) com 5 métricas em cards + 2 gráficos interativos Plotly. |
-| **RF06** | **Exportação de Relatórios Gerenciais** | ✅ **Concluído** | Emissão de relatório oficial em **PDF** institucional via [`utils/pdf_generator.py`](file:///d:/Projects/docente360/utils/pdf_generator.py) e download em **CSV**. |
+| **RF06** | **Exportação de Relatórios Gerenciais** | ✅ **Concluído (Avançado)** | Central de relatórios na Coordenação em [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py) com filtros reativos (período, docente, turma, status), pré-visualização tabular e emissão em **PDF Oficial Diagramado (Paisagem)** via [`utils/pdf_generator.py`](file:///d:/Projects/docente360/utils/pdf_generator.py) com NumberedCanvas, sumário de KPIs, cabeçalho e assinaturas institucionais, além de exportação em planilha **CSV**. |
 
 ---
 

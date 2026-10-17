@@ -58,13 +58,15 @@ def get_turmas(supabase: Client) -> pd.DataFrame:
 # CONSULTAS DE OPERAÇÃO E OCORRÊNCIAS
 # ==============================================================================
 def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
-    """Retorna todas as ausências registradas com joins relacionais (professores, disciplinas e turmas)."""
+    """Retorna todas as ausências registradas com joins relacionais completos (professores, disciplinas, turmas, substituições e reposições)."""
     try:
         query = """
             id, data_ausencia, horario, motivo, status, professor_id, disciplina_id, turma_id,
             professores!ausencias_professor_id_fkey(id, nome, email),
             disciplinas!ausencias_disciplina_id_fkey(codigo, nome),
-            turmas!ausencias_turma_id_fkey(codigo, curso)
+            turmas!ausencias_turma_id_fkey(codigo, curso),
+            substituicoes(id, aula_vaga, observacoes, professor_substituto_id, professores(nome)),
+            reposicoes_atestados(id, atestado_url, data_reposicao, horario_reposicao, comprovada)
         """
         res = supabase.table("ausencias").select(query).order("data_ausencia", desc=True).execute()
         data = []
@@ -72,17 +74,59 @@ def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
             prof = item.get("professores") or {}
             disc = item.get("disciplinas") or {}
             turma = item.get("turmas") or {}
+
+            # Tratativa / Substituição
+            sub_list = item.get("substituicoes") or []
+            sub = sub_list[0] if sub_list else {}
+            sub_prof = sub.get("professores") or {}
+            sub_nome = sub_prof.get("nome") if sub_prof else None
+            is_aula_vaga = bool(sub.get("aula_vaga"))
+            obs_tratativa = sub.get("observacoes") or ""
+
+            if is_aula_vaga:
+                tratativa = f"Aula Vaga ({obs_tratativa})" if obs_tratativa else "Aula Vaga"
+            elif sub_nome:
+                tratativa = f"Substituto: {sub_nome}"
+            else:
+                tratativa = "Pendente de tratativa"
+
+            # Reposição & Atestado
+            rep_list = item.get("reposicoes_atestados") or []
+            rep = rep_list[0] if rep_list else {}
+            data_rep = rep.get("data_reposicao")
+            hora_rep = rep.get("horario_reposicao")
+            atestado_url = rep.get("atestado_url")
+            tem_atestado = bool(atestado_url)
+            rep_comprovada = bool(rep.get("comprovada"))
+
+            if data_rep:
+                info_rep = f"{data_rep} ({hora_rep or 'A combinar'})"
+            else:
+                info_rep = "Não agendada"
+
             data.append({
                 "ID": item["id"],
-                "Data": item["data_ausencia"],
+                "Data": str(item["data_ausencia"]),
                 "Horário": item["horario"],
                 "ProfessorID": item.get("professor_id"),
                 "Professor": prof.get("nome", "Docente não informado"),
                 "EmailProfessor": prof.get("email", ""),
                 "Disciplina": f"{disc.get('codigo', '')} - {disc.get('nome', '')}".strip(" -"),
+                "CodigoDisciplina": disc.get("codigo", ""),
                 "Turma": f"{turma.get('codigo', '')} ({turma.get('curso', '')})".strip(" ()"),
+                "CodigoTurma": turma.get("codigo", ""),
+                "Curso": turma.get("curso", ""),
                 "Motivo": item.get("motivo") or "Não informado",
-                "Status": item.get("status", "Pendente")
+                "Status": item.get("status", "Pendente"),
+                "Tratativa": tratativa,
+                "Substituto": sub_nome if sub_nome else ("Aula Vaga" if is_aula_vaga else "-"),
+                "AulaVaga": is_aula_vaga,
+                "DataReposicao": data_rep or "-",
+                "HorarioReposicao": hora_rep or "-",
+                "InfoReposicao": info_rep,
+                "Atestado": "Sim (Anexado)" if tem_atestado else "Não",
+                "AtestadoURL": atestado_url,
+                "RepComprovada": "Sim (Homologada)" if rep_comprovada else "Não"
             })
         return pd.DataFrame(data)
     except Exception as e:
