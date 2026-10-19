@@ -35,6 +35,66 @@ def apply_custom_styles():
         .badge-sec { background-color: #DBEAFE; color: #1E40AF; }
         .badge-coord { background-color: #FEF3C7; color: #92400E; }
         .badge-admin { background-color: #D1FAE5; color: #065F46; }
+
+        /* =====================================================================
+           ESTILIZAÇÃO MODERNA DAS ABAS (TABS / PILLS) - SEM CORTE DE TEXTO
+           ===================================================================== */
+        /* Barra container das abas com visual moderno estilo pills */
+        div[data-baseweb="tab-list"] {
+            gap: 6px !important;
+            background-color: #F1F5F9 !important;
+            padding: 6px !important;
+            border-radius: 10px !important;
+            border-bottom: none !important;
+            flex-wrap: wrap !important;
+            overflow-x: visible !important;
+            margin-bottom: 1.2rem !important;
+        }
+
+        /* Oculta as linhas de borda padrão do Streamlit */
+        div[data-baseweb="tab-border"] {
+            display: none !important;
+        }
+        div[data-baseweb="tab-highlight"] {
+            display: none !important;
+        }
+
+        /* Oculta as setas de scroll lateral que cortavam a visão das abas */
+        div[data-baseweb="tabs"] button[aria-label="previous"],
+        div[data-baseweb="tabs"] button[aria-label="next"] {
+            display: none !important;
+        }
+
+        /* Botão individual de cada aba */
+        button[data-baseweb="tab"] {
+            border-radius: 8px !important;
+            padding: 8px 18px !important;
+            font-weight: 600 !important;
+            font-size: 0.92rem !important;
+            color: #475569 !important;
+            background-color: transparent !important;
+            border: none !important;
+            transition: all 0.2s ease-in-out !important;
+        }
+
+        button[data-baseweb="tab"]:hover {
+            background-color: #E2E8F0 !important;
+            color: #0F172A !important;
+        }
+
+        /* Aba ativa selecionada com destaque em azul royal */
+        button[data-baseweb="tab"][aria-selected="true"] {
+            background-color: #1E40AF !important;
+            color: #FFFFFF !important;
+            box-shadow: 0 2px 4px rgba(30, 64, 175, 0.2) !important;
+        }
+
+        button[data-baseweb="tab"][aria-selected="true"] p,
+        button[data-baseweb="tab"][aria-selected="true"] span,
+        button[data-baseweb="tab"][aria-selected="true"] div {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 

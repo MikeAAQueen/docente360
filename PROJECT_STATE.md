@@ -216,10 +216,8 @@ erDiagram
 
 ## 7. Próximos Passos e Backlog Prioritário
 
-Para as próximas iterações do Docente360, recomenda-se:
-
-1. **Gestão de Cadastros Base na Tela do Administrador:**
-   - Adicionar abas na tela do Administrador para cadastrar/editar/excluir Professores, Turmas e Disciplinas diretamente pelo sistema (sem precisar rodar scripts SQL manuais).
+1. **Gestão de Cadastros Base na Secretaria e Administrador:**
+   - ✅ **Concluído:** Adicionada aba `"📚 Cadastros (Professores & Matérias)"` na Secretaria e visão sincronizada no Administrador com busca em tempo real, validações de duplicidade e exclusão segura com proteção de chaves estrangeiras.
 2. **Validação de Conflitos de Agenda (RN01):**
    - Implementar verificação automática se o docente substituto selecionado já possui outra aula ou substituição confirmada no mesmo dia e bloco de horários.
 3. **Filtros Temporais Avançados no Dashboard da Coordenação:**

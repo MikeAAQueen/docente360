@@ -2,10 +2,12 @@ import os
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
-from dotenv import load_dotenv
-
-# Carrega variáveis do arquivo .env se presente
-load_dotenv()
+# Carrega variáveis do arquivo .env se a biblioteca python-dotenv estiver disponível
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # ==============================================================================
 # INICIALIZAÇÃO DO CLIENTE SUPABASE
@@ -152,3 +154,111 @@ def get_usuarios_cadastrados(supabase: Client) -> pd.DataFrame:
     except Exception as e:
         st.warning(f"Erro ao buscar usuários: {e}")
         return pd.DataFrame()
+
+
+# ==============================================================================
+# OPERAÇÕES DE CADASTRO BASE (PROFESSORES, DISCIPLINAS E TURMAS)
+# ==============================================================================
+def cadastrar_professor(supabase: Client, nome: str, email: str, departamento: str = "") -> tuple[bool, str]:
+    """Cadastra um novo professor no banco de dados com validações."""
+    nome = nome.strip()
+    email = email.strip().lower()
+    departamento = departamento.strip()
+
+    if not nome or not email:
+        return False, "Nome completo e e-mail institucional são obrigatórios."
+    if "@" not in email or "." not in email:
+        return False, "Por favor, informe um endereço de e-mail válido (ex: docente@escola.edu.br)."
+
+    try:
+        supabase.table("professores").insert({
+            "nome": nome,
+            "email": email,
+            "departamento": departamento if departamento else "Geral"
+        }).execute()
+        return True, f"Professor(a) '{nome}' cadastrado(a) com sucesso!"
+    except Exception as e:
+        err = str(e)
+        if "23505" in err or "professores_email_key" in err or "duplicate key" in err:
+            return False, f"Já existe um professor cadastrado com o e-mail '{email}'."
+        return False, f"Erro ao cadastrar professor: {err}"
+
+
+def excluir_professor(supabase: Client, prof_id: str) -> tuple[bool, str]:
+    """Exclui um professor caso não haja ausências ou substituições associadas."""
+    try:
+        supabase.table("professores").delete().eq("id", prof_id).execute()
+        return True, "Professor removido com sucesso!"
+    except Exception as e:
+        err = str(e)
+        if "23503" in err or "foreign key" in err:
+            return False, "Não é possível remover este docente: existem ausências ou substituições registradas vinculadas a ele."
+        return False, f"Erro ao excluir professor: {err}"
+
+
+def cadastrar_disciplina(supabase: Client, codigo: str, nome: str) -> tuple[bool, str]:
+    """Cadastra uma nova matéria / disciplina no banco de dados."""
+    codigo = codigo.strip().upper()
+    nome = nome.strip()
+
+    if not codigo or not nome:
+        return False, "Código e nome da disciplina são obrigatórios."
+
+    try:
+        supabase.table("disciplinas").insert({
+            "codigo": codigo,
+            "nome": nome
+        }).execute()
+        return True, f"Matéria '{codigo} - {nome}' cadastrada com sucesso!"
+    except Exception as e:
+        err = str(e)
+        if "23505" in err or "disciplinas_codigo_key" in err or "duplicate key" in err:
+            return False, f"Já existe uma matéria cadastrada com o código '{codigo}'."
+        return False, f"Erro ao cadastrar matéria: {err}"
+
+
+def excluir_disciplina(supabase: Client, disc_id: str) -> tuple[bool, str]:
+    """Exclui uma matéria / disciplina caso não haja registros vinculados."""
+    try:
+        supabase.table("disciplinas").delete().eq("id", disc_id).execute()
+        return True, "Matéria removida com sucesso!"
+    except Exception as e:
+        err = str(e)
+        if "23503" in err or "foreign key" in err:
+            return False, "Não é possível remover esta matéria: existem ausências registradas vinculadas a ela."
+        return False, f"Erro ao excluir matéria: {err}"
+
+
+def cadastrar_turma(supabase: Client, codigo: str, curso: str, periodo: str) -> tuple[bool, str]:
+    """Cadastra uma nova turma no banco de dados."""
+    codigo = codigo.strip().upper()
+    curso = curso.strip()
+    periodo = periodo.strip()
+
+    if not codigo or not curso or not periodo:
+        return False, "Código, curso e turno/período são obrigatórios."
+
+    try:
+        supabase.table("turmas").insert({
+            "codigo": codigo,
+            "curso": curso,
+            "periodo": periodo
+        }).execute()
+        return True, f"Turma '{codigo}' ({curso}) cadastrada com sucesso!"
+    except Exception as e:
+        err = str(e)
+        if "23505" in err or "turmas_codigo_key" in err or "duplicate key" in err:
+            return False, f"Já existe uma turma cadastrada com o código '{codigo}'."
+        return False, f"Erro ao cadastrar turma: {err}"
+
+
+def excluir_turma(supabase: Client, turma_id: str) -> tuple[bool, str]:
+    """Exclui uma turma caso não haja registros vinculados."""
+    try:
+        supabase.table("turmas").delete().eq("id", turma_id).execute()
+        return True, "Turma removida com sucesso!"
+    except Exception as e:
+        err = str(e)
+        if "23503" in err or "foreign key" in err:
+            return False, "Não é possível remover esta turma: existem ausências registradas vinculadas a ela."
+        return False, f"Erro ao excluir turma: {err}"

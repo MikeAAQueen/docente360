@@ -14,9 +14,9 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
     cargo_emissor = user_info.get("cargo", "Coordenador Acadêmico")
 
     abas_coord = st.tabs([
-        "📊 Dashboard Analítico de Indicadores",
-        "✅ Homologação de Reposições",
-        "📄 Relatórios Gerenciais em PDF"
+        "📊 Dashboard",
+        "✅ Homologação",
+        "📄 Relatórios"
     ])
 
     # --------------------------------------------------------------------------

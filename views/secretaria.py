@@ -8,6 +8,7 @@ from services.supabase_service import (
     get_turmas,
     get_ausencias_completas
 )
+from components.cadastros import render_cadastros_base
 
 def render_secretaria_view(supabase: Client, user_profile: dict):
     """Renderiza a visão e as operações diárias da Secretaria."""
@@ -17,10 +18,11 @@ def render_secretaria_view(supabase: Client, user_profile: dict):
     df_ausencias = get_ausencias_completas(supabase)
 
     abas_sec = st.tabs([
-        "📌 Lançamento Diário de Ausências",
-        "🔄 Gestão de Substituições & Aulas Vagas",
-        "📑 Anexo de Atestados & Reposições",
-        "📋 Histórico Geral de Ocorrências"
+        "📌 Lançamento",
+        "🔄 Substituições",
+        "📑 Atestados",
+        "📚 Cadastros",
+        "📋 Histórico"
     ])
 
     # --------------------------------------------------------------------------
@@ -28,6 +30,10 @@ def render_secretaria_view(supabase: Client, user_profile: dict):
     # --------------------------------------------------------------------------
     with abas_sec[0]:
         st.subheader("Registrar Ocorrência de Falta Docente")
+        if df_prof.empty or df_disc.empty or df_turmas.empty:
+            st.warning("⚠️ **Atenção:** Há dados básicos não cadastrados (professores, matérias ou turmas). Acesse a aba **'📚 Cadastros'** para adicioná-los.")
+        else:
+            st.caption("💡 Não encontrou o docente ou a matéria? Cadastre-os rapidamente na aba **'📚 Cadastros'**.")
         with st.form("form_sec_ausencia", clear_on_submit=True):
             col_a, col_b = st.columns(2)
             with col_a:
@@ -181,8 +187,14 @@ def render_secretaria_view(supabase: Client, user_profile: dict):
                     st.rerun()
 
     # --------------------------------------------------------------------------
-    # TAB 4: HISTÓRICO GERAL
+    # TAB 4: CADASTROS (PROFESSORES & MATÉRIAS)
     # --------------------------------------------------------------------------
     with abas_sec[3]:
+        render_cadastros_base(supabase, perfil_usuario="Secretaria")
+
+    # --------------------------------------------------------------------------
+    # TAB 5: HISTÓRICO GERAL
+    # --------------------------------------------------------------------------
+    with abas_sec[4]:
         st.subheader("Histórico Completo de Ausências")
         st.dataframe(df_ausencias, use_container_width=True)

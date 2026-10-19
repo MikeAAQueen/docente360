@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
 -- Habilitar Row Level Security (RLS) para a tabela de usuários
 ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
 
--- Políticas de segurança
+-- Políticas de segurança para usuários
 CREATE POLICY "Permitir leitura de usuarios autenticados" 
 ON usuarios FOR SELECT 
 TO authenticated 
@@ -91,6 +91,32 @@ CREATE POLICY "Permitir atualizacao do proprio usuario"
 ON usuarios FOR UPDATE 
 TO authenticated 
 USING (auth.uid() = id);
+
+-- Políticas de segurança para tabelas de apoio (Professores, Disciplinas e Turmas)
+ALTER TABLE professores ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Acesso total a professores para autenticados" 
+ON professores FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE disciplinas ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Acesso total a disciplinas para autenticados" 
+ON disciplinas FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE turmas ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Acesso total a turmas para autenticados" 
+ON turmas FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Políticas de segurança para tabelas operacionais
+ALTER TABLE ausencias ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Acesso total a ausencias para autenticados" 
+ON ausencias FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE substituicoes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Acesso total a substituicoes para autenticados" 
+ON substituicoes FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE reposicoes_atestados ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Acesso total a reposicoes para autenticados" 
+ON reposicoes_atestados FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Trigger automática para sincronizar novos cadastros do Supabase Auth com a tabela 'usuarios'
 CREATE OR REPLACE FUNCTION public.handle_new_user()
