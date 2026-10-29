@@ -35,6 +35,7 @@ def apply_custom_styles():
         .badge-sec { background-color: #DBEAFE; color: #1E40AF; }
         .badge-coord { background-color: #FEF3C7; color: #92400E; }
         .badge-admin { background-color: #D1FAE5; color: #065F46; }
+        .badge-prof { background-color: #EDE9FE; color: #5B21B6; }
 
         /* =====================================================================
            ESTILIZAÇÃO MODERNA DAS ABAS (TABS / PILLS) - SEM CORTE DE TEXTO
@@ -119,7 +120,8 @@ def render_sidebar_user(supabase: Client, user_profile: dict):
 
         badge_class = (
             "badge-sec" if perfil_usuario == "Secretaria"
-            else ("badge-coord" if perfil_usuario == "Coordenador Acadêmico" else "badge-admin")
+            else ("badge-coord" if perfil_usuario == "Coordenador Acadêmico"
+            else ("badge-prof" if perfil_usuario == "Professor" else "badge-admin"))
         )
         st.markdown(f'<span class="user-badge {badge_class}">{perfil_usuario}</span>', unsafe_allow_html=True)
 
@@ -133,6 +135,7 @@ def render_sidebar_user(supabase: Client, user_profile: dict):
                 [
                     "📌 Secretaria (Lançamento & Faltas)",
                     "📊 Coordenação (Dashboard & Relatórios)",
+                    "👨‍🏫 Portal do Professor (Visão do Docente)",
                     "👥 Painel Geral do Administrador"
                 ],
                 index=0

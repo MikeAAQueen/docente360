@@ -63,7 +63,7 @@ def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
     """Retorna todas as ausências registradas com joins relacionais completos (professores, disciplinas, turmas, substituições e reposições)."""
     try:
         query = """
-            id, data_ausencia, horario, motivo, status, professor_id, disciplina_id, turma_id,
+            id, data_ausencia, horario, motivo, status, registrado_por, professor_id, disciplina_id, turma_id,
             professores!ausencias_professor_id_fkey(id, nome, email),
             disciplinas!ausencias_disciplina_id_fkey(codigo, nome),
             turmas!ausencias_turma_id_fkey(codigo, curso),
@@ -120,8 +120,10 @@ def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
                 "Curso": turma.get("curso", ""),
                 "Motivo": item.get("motivo") or "Não informado",
                 "Status": item.get("status", "Pendente"),
+                "RegistradoPor": item.get("registrado_por", "Secretaria"),
                 "Tratativa": tratativa,
                 "Substituto": sub_nome if sub_nome else ("Aula Vaga" if is_aula_vaga else "-"),
+                "SubstitutoID": sub.get("professor_substituto_id"),
                 "AulaVaga": is_aula_vaga,
                 "DataReposicao": data_rep or "-",
                 "HorarioReposicao": hora_rep or "-",
@@ -134,6 +136,118 @@ def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
     except Exception as e:
         st.warning(f"Erro ao buscar ausências: {e}")
         return pd.DataFrame()
+
+
+def get_ausencias_do_professor(supabase: Client, professor_id: str) -> pd.DataFrame:
+    """Retorna o histórico de ausências de um professor específico."""
+    df_todas = get_ausencias_completas(supabase)
+    if df_todas.empty or not professor_id:
+        return pd.DataFrame()
+    return df_todas[df_todas["ProfessorID"] == professor_id]
+
+
+def get_substituicoes_do_professor(supabase: Client, professor_id: str) -> pd.DataFrame:
+    """Retorna as aulas onde este docente foi convocado como substituto."""
+    df_todas = get_ausencias_completas(supabase)
+    if df_todas.empty or not professor_id:
+        return pd.DataFrame()
+    return df_todas[df_todas["SubstitutoID"] == professor_id]
+
+
+def anexar_atestado_reposicao(
+    supabase: Client,
+    ausencia_id: str,
+    doc_file=None,
+    data_reposicao: str = None,
+    horario_reposicao: str = None
+) -> tuple[bool, str]:
+    """Anexa comprovante médico ao Supabase Storage e registra/atualiza a proposta de reposição."""
+    try:
+        url_atestado = None
+        if doc_file:
+            fpath = f"{ausencia_id}_{doc_file.name}"
+            try:
+                supabase.storage.from_("atestados").upload(fpath, doc_file.getvalue())
+                url_atestado = supabase.storage.from_("atestados").get_public_url(fpath)
+            except Exception as e:
+                # Se arquivo já existe ou erro de upload
+                err_msg = str(e)
+                if "Duplicate" in err_msg or "already exists" in err_msg:
+                    url_atestado = supabase.storage.from_("atestados").get_public_url(fpath)
+                else:
+                    return False, f"Erro ao anexar arquivo no Supabase Storage: {err_msg}"
+
+        # Verifica se já existe registro em reposicoes_atestados para essa ausência
+        rep_existente = supabase.table("reposicoes_atestados").select("id").eq("ausencia_id", ausencia_id).execute()
+        
+        dados_rep = {
+            "ausencia_id": ausencia_id,
+            "data_reposicao": str(data_reposicao) if data_reposicao else None,
+            "horario_reposicao": horario_reposicao or "A combinar",
+            "comprovada": False
+        }
+        if url_atestado:
+            dados_rep["atestado_url"] = url_atestado
+
+        if rep_existente.data and len(rep_existente.data) > 0:
+            rep_id = rep_existente.data[0]["id"]
+            supabase.table("reposicoes_atestados").update(dados_rep).eq("id", rep_id).execute()
+        else:
+            supabase.table("reposicoes_atestados").insert(dados_rep).execute()
+
+        # Atualiza o status da ausência para 'Aguardando Homologação'
+        supabase.table("ausencias").update({"status": "Aguardando Homologação"}).eq("id", ausencia_id).execute()
+        return True, "Atestado e proposta de reposição enviados para homologação da Coordenação!"
+    except Exception as e:
+        return False, f"Erro ao salvar comprovação: {e}"
+
+
+def registrar_ausencia_docente(
+    supabase: Client,
+    professor_id: str,
+    disciplina_id: str,
+    turma_id: str,
+    data_ausencia: str,
+    horario: str,
+    motivo: str,
+    doc_file=None,
+    data_reposicao: str = None,
+    horario_reposicao: str = None
+) -> tuple[bool, str]:
+    """Permite ao próprio professor comunicar sua ausência com envio de atestado opcional."""
+    try:
+        status_inicial = "Aguardando Homologação" if doc_file or data_reposicao else "Pendente"
+        
+        # 1. Insere ausência
+        res = supabase.table("ausencias").insert({
+            "professor_id": professor_id,
+            "disciplina_id": disciplina_id,
+            "turma_id": turma_id,
+            "data_ausencia": str(data_ausencia),
+            "horario": horario,
+            "motivo": motivo,
+            "status": status_inicial,
+            "registrado_por": "Docente"
+        }).execute()
+
+        if not res.data:
+            return False, "Erro ao registrar ausência no banco de dados."
+
+        ausencia_id = res.data[0]["id"]
+
+        # 2. Se houver atestado ou proposta de reposição, vincula imediatamente
+        if doc_file or data_reposicao:
+            anexar_atestado_reposicao(
+                supabase=supabase,
+                ausencia_id=ausencia_id,
+                doc_file=doc_file,
+                data_reposicao=data_reposicao,
+                horario_reposicao=horario_reposicao
+            )
+
+        return True, "Ausência comunicada com sucesso! A Secretaria e a Coordenação já foram notificadas."
+    except Exception as e:
+        return False, f"Erro ao comunicar ausência: {e}"
 
 
 def get_reposicoes(supabase: Client) -> pd.DataFrame:

@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS ausencias (
     horario VARCHAR(50) NOT NULL,
     motivo TEXT,
     status VARCHAR(50) DEFAULT 'Pendente', -- Valores: Pendente, Substituída, Aula Vaga, Aguardando Homologação, Reposta
+    registrado_por VARCHAR(50) DEFAULT 'Secretaria', -- Valores: Secretaria, Docente
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -62,13 +63,14 @@ CREATE TABLE IF NOT EXISTS reposicoes_atestados (
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 7. Tabela de Usuários Administrativos (Secretaria e Coordenação vinculados ao Supabase Auth)
+-- 7. Tabela de Usuários (Secretaria, Coordenação, Professor e Administrador vinculados ao Supabase Auth)
 CREATE TABLE IF NOT EXISTS usuarios (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     nome VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    perfil VARCHAR(50) NOT NULL CHECK (perfil IN ('Secretaria', 'Coordenador Acadêmico', 'Administrador')),
+    perfil VARCHAR(50) NOT NULL CHECK (perfil IN ('Secretaria', 'Coordenador Acadêmico', 'Administrador', 'Professor')),
     cargo VARCHAR(100),
+    professor_id UUID REFERENCES professores(id) ON DELETE SET NULL,
     ativo BOOLEAN DEFAULT TRUE,
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -121,19 +123,31 @@ ON reposicoes_atestados FOR ALL TO authenticated USING (true) WITH CHECK (true);
 -- Trigger automática para sincronizar novos cadastros do Supabase Auth com a tabela 'usuarios'
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_prof_id UUID;
+    v_perfil VARCHAR(50);
+    v_cargo VARCHAR(100);
 BEGIN
-    INSERT INTO public.usuarios (id, email, nome, perfil, cargo)
+    -- Busca se já existe um professor com o mesmo e-mail cadastrado
+    SELECT id INTO v_prof_id FROM public.professores WHERE LOWER(email) = LOWER(new.email) LIMIT 1;
+    
+    v_perfil := COALESCE(new.raw_user_meta_data->>'perfil', CASE WHEN v_prof_id IS NOT NULL THEN 'Professor' ELSE 'Secretaria' END);
+    v_cargo := COALESCE(new.raw_user_meta_data->>'cargo', CASE WHEN v_prof_id IS NOT NULL THEN 'Docente' ELSE 'Equipe Operacional' END);
+
+    INSERT INTO public.usuarios (id, email, nome, perfil, cargo, professor_id)
     VALUES (
         new.id,
         new.email,
         COALESCE(new.raw_user_meta_data->>'nome', split_part(new.email, '@', 1)),
-        COALESCE(new.raw_user_meta_data->>'perfil', 'Secretaria'),
-        COALESCE(new.raw_user_meta_data->>'cargo', 'Equipe Operacional')
+        v_perfil,
+        v_cargo,
+        v_prof_id
     )
     ON CONFLICT (id) DO UPDATE SET
         nome = EXCLUDED.nome,
         perfil = EXCLUDED.perfil,
-        cargo = EXCLUDED.cargo;
+        cargo = EXCLUDED.cargo,
+        professor_id = COALESCE(EXCLUDED.professor_id, usuarios.professor_id);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

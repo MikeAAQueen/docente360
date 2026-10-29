@@ -6,6 +6,7 @@ from views.login import render_login_view
 from views.secretaria import render_secretaria_view
 from views.coordenador import render_coordenador_view
 from views.admin import render_admin_view
+from views.professor import render_professor_view
 
 # ==============================================================================
 # CONFIGURAÇÃO GERAL DA PÁGINA
@@ -51,6 +52,9 @@ if perfil_usuario == "Administrador":
     elif modulo_master == "📊 Coordenação (Dashboard & Relatórios)":
         st.info("💡 **Acesso Master:** Você está operando o módulo da **Coordenação Acadêmica**. Aqui você pode acompanhar indicadores, homologar reposições e emitir relatórios.")
         render_coordenador_view(supabase, user_profile)
+    elif modulo_master == "👨‍🏫 Portal do Professor (Visão do Docente)":
+        st.info("💡 **Acesso Master:** Você está visualizando o **Portal do Docente** para envio de atestados e auto-registro de ausências.")
+        render_professor_view(supabase, user_profile)
     else:
         render_admin_view(supabase, user_profile)
 elif perfil_usuario == "Secretaria":
@@ -59,5 +63,8 @@ elif perfil_usuario == "Secretaria":
 elif perfil_usuario == "Coordenador Acadêmico":
     render_header(perfil_usuario, nome_usuario, cargo_usuario)
     render_coordenador_view(supabase, user_profile)
+elif perfil_usuario == "Professor":
+    render_header("Portal do Docente", nome_usuario, cargo_usuario)
+    render_professor_view(supabase, user_profile)
 else:
     st.warning(f"Perfil de acesso '{perfil_usuario}' não reconhecido.")

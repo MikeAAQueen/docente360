@@ -62,9 +62,10 @@ Abaixo está o detalhamento de cada requisito levantado no documento [`levantame
 | :--- | :--- | :---: | :--- |
 | **Autenticação Geral** | Login e registro com Supabase Auth oficial, senhas criptografadas e persistência de sessão. | ✅ **Concluído** | [`services/auth_service.py`](file:///d:/Projects/docente360/services/auth_service.py) e [`views/login.py`](file:///d:/Projects/docente360/views/login.py) |
 | **Tabela de Usuários** | Sincronização entre `auth.users` e tabela de perfis de usuário com RLS. | ✅ **Concluído** | [`banco_dados.sql:65-119`](file:///d:/Projects/docente360/banco_dados.sql#L65-L119) |
-| **Secretaria** | Acesso restrito a operações diárias de ausências, substituições e atestados. | ✅ **Concluído** | [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py) |
-| **Coordenador Acadêmico** | Acesso restrito a dashboards, homologações pedagógicas e exportação de relatórios. | ✅ **Concluído** | [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py) |
-| **Administrador** | Gestão de contas, cadastros base e visão global com alternador master entre todos os setores. | ✅ **Concluído** | [`views/admin.py`](file:///d:/Projects/docente360/views/admin.py) e [`components/styles.py`](file:///d:/Projects/docente360/components/styles.py) |
+| **Secretaria** | Acesso restrito a operações diárias de ausências, substituições e atestados. | ✅ **Concluído** | [`views/secretaria.py`](file:///c:/Users/2503097/Documents/Docente360/views/secretaria.py) |
+| **Coordenador Acadêmico** | Acesso restrito a dashboards, homologações pedagógicas e exportação de relatórios. | ✅ **Concluído** | [`views/coordenador.py`](file:///c:/Users/2503097/Documents/Docente360/views/coordenador.py) |
+| **Professor** | Portal do Docente para envio de atestados, reposições, auto-aviso de faltas e vínculo a cadastros existentes. | ✅ **Concluído** | [`views/professor.py`](file:///c:/Users/2503097/Documents/Docente360/views/professor.py) e [`views/login.py`](file:///c:/Users/2503097/Documents/Docente360/views/login.py) |
+| **Administrador** | Gestão de contas, cadastros base e visão global com alternador master entre todos os setores. | ✅ **Concluído** | [`views/admin.py`](file:///c:/Users/2503097/Documents/Docente360/views/admin.py) e [`components/styles.py`](file:///c:/Users/2503097/Documents/Docente360/components/styles.py) |
 
 ---
 
@@ -208,6 +209,7 @@ erDiagram
         string email
         string perfil
         string cargo
+        uuid professor_id FK
         boolean ativo
     }
 ```
@@ -218,11 +220,11 @@ erDiagram
 
 1. **Gestão de Cadastros Base na Secretaria e Administrador:**
    - ✅ **Concluído:** Adicionada aba `"📚 Cadastros (Professores & Matérias)"` na Secretaria e visão sincronizada no Administrador com busca em tempo real, validações de duplicidade e exclusão segura com proteção de chaves estrangeiras.
-2. **Validação de Conflitos de Agenda (RN01):**
+2. **Portal do Docente & Auto-atendimento do Professor:**
+   - ✅ **Concluído:** Adicionado perfil `"Professor"`, integração automática com a tabela `professores` via `professor_id`, upload direto de atestados médicos pelo próprio docente, fluxo de auto-comunicação de faltas e visualização de convocações de substituição em [`views/professor.py`](file:///c:/Users/2503097/Documents/Docente360/views/professor.py).
+3. **Validação de Conflitos de Agenda (RN01):**
    - Implementar verificação automática se o docente substituto selecionado já possui outra aula ou substituição confirmada no mesmo dia e bloco de horários.
-3. **Filtros Temporais Avançados no Dashboard da Coordenação:**
+4. **Filtros Temporais Avançados no Dashboard da Coordenação:**
    - Adicionar seletores de intervalo de datas (semana, mês, semestre) e filtros por curso/turma para refinar os gráficos e o relatório em PDF.
-4. **Alerta de Prazo de Atestado (RN02):**
+5. **Alerta de Prazo de Atestado (RN02):**
    - Destacar em vermelho ausências com mais de 48 horas úteis sem justificativa ou atestado anexado.
-5. **Portal do Docente (Opcional / Futuro):**
-   - Permitir login do próprio professor para que ele mesmo envie sua justificativa e proponha a data de reposição de suas faltas.
