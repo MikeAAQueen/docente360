@@ -70,13 +70,41 @@ def render_professor_view(supabase: Client, user_profile: dict):
     total_faltas = len(df_minhas_ausencias) if not df_minhas_ausencias.empty else 0
     sem_atestado = len(df_minhas_ausencias[df_minhas_ausencias["Atestado"] == "Não"]) if not df_minhas_ausencias.empty else 0
     aguardando_homolog = len(df_minhas_ausencias[df_minhas_ausencias["Status"] == "Aguardando Homologação"]) if not df_minhas_ausencias.empty else 0
-    homologadas = len(df_minhas_ausencias[df_minhas_ausencias["Status"] == "Reposta"]) if not df_minhas_ausencias.empty else 0
+    homologadas = len(df_minhas_ausencias[df_minhas_ausencias["Status"].isin(["Reposta", "Aprovada"])]) if not df_minhas_ausencias.empty else 0
 
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     col_m1.metric("Minhas Ausências", total_faltas)
     col_m2.metric("Pendentes de Atestado", sem_atestado, delta=None if sem_atestado == 0 else f"{sem_atestado} pendente(s)", delta_color="inverse")
     col_m3.metric("Aguardando Homologação", aguardando_homolog)
-    col_m4.metric("Reposições Concluídas", homologadas)
+    col_m4.metric("Atestados Aprovados", homologadas)
+
+    # Identifica ausências que foram recusadas pela Secretaria e voltaram a ficar pendentes
+    ausencias_recusadas = df_minhas_ausencias[
+        df_minhas_ausencias["Motivo"].str.contains(r"\[Recusa da Secretaria:", regex=True, na=False) & 
+        (df_minhas_ausencias["Status"] == "Pendente")
+    ] if not df_minhas_ausencias.empty else pd.DataFrame()
+
+    if not ausencias_recusadas.empty:
+        st.error(
+            f"❌ **Atenção:** Você possui **{len(ausencias_recusadas)} atestado(s) que não foram aprovados pela Secretaria**. A ocorrência voltou a ficar pendente para que você anexe o comprovante corrigido. Veja os detalhes abaixo na aba 'Minhas Ausências & Atestados'."
+        )
+
+    # Eventos de falta registrados pela Secretaria pendentes de atestado pelo docente ou recusados
+    eventos_secretaria = df_minhas_ausencias[
+        (
+            ((df_minhas_ausencias["RegistradoPor"] == "Secretaria") & (df_minhas_ausencias["Atestado"] == "Não")) |
+            (df_minhas_ausencias["Motivo"].str.contains(r"\[Recusa da Secretaria:", regex=True, na=False))
+        ) & 
+        (~df_minhas_ausencias["Status"].isin(["Reposta", "Aprovada", "Aguardando Homologação"]))
+    ] if not df_minhas_ausencias.empty else pd.DataFrame()
+
+    if not eventos_secretaria.empty and ausencias_recusadas.empty:
+        st.warning(
+            f"🔔 **Atenção:** A Secretaria registrou **{len(eventos_secretaria)} ocorrência(s) de falta** em seu nome aguardando envio de atestado médico comprobatório e indicação de reposição de aula. Confira a seção destacada abaixo."
+        )
+
+    if aguardando_homolog > 0:
+        st.info(f"⏳ Você possui **{aguardando_homolog} atestado(s)** enviado(s) que estão **pendentes de homologação/aprovação pela Secretaria**.")
 
     st.markdown("---")
 
@@ -94,55 +122,138 @@ def render_professor_view(supabase: Client, user_profile: dict):
     # --------------------------------------------------------------------------
     with aba_minhas:
         st.subheader("Minhas Ocorrências e Envio de Comprovantes")
-        st.caption("Consulte suas ausências registradas e envie atestados médicos ou justificativas para análise da Coordenação.")
+        st.caption("Consulte suas ausências registradas e envie atestados médicos ou justificativas para homologação da Secretaria.")
 
-        # Se houver ausências sem atestado, destaca um formulário de anexo rápido
-        aus_pendentes_anexo = df_minhas_ausencias[
-            (df_minhas_ausencias["Atestado"] == "Não") | (df_minhas_ausencias["Status"] == "Pendente")
+        # ======================================================================
+        # SEÇÃO 1: EVENTOS DA SECRETARIA / ATESTADOS RECUSADOS PENDENTES
+        # ======================================================================
+        if not eventos_secretaria.empty:
+            st.markdown("#### 🔔 Faltas Aguardando seu Atestado Médico")
+            st.info("Abaixo estão as ocorrências que requerem o envio do seu atestado médico e indicação de data/horário para reposição de aula.")
+
+            opcoes_sec = {
+                r["ID"]: f"{r['Data']} — {r['Disciplina']} ({r['Turma']} | {r['Horário']})"
+                for _, r in eventos_secretaria.iterrows()
+            }
+            ev_sel_id = st.selectbox(
+                "Selecione a ausência para anexar seu atestado:",
+                options=list(opcoes_sec.keys()),
+                format_func=lambda x: opcoes_sec[x],
+                key="sel_evento_secretaria"
+            )
+            ev_detalhe = eventos_secretaria[eventos_secretaria["ID"] == ev_sel_id].iloc[0]
+
+            # Verifica se essa ocorrência foi recusada anteriormente pela Secretaria
+            motivo_completo = str(ev_detalhe.get("Motivo", ""))
+            motivo_recusa = ""
+            if "[Recusa da Secretaria:" in motivo_completo:
+                try:
+                    motivo_recusa = motivo_completo.split("[Recusa da Secretaria:")[1].split("]")[0].strip()
+                except Exception:
+                    motivo_recusa = motivo_completo
+
+            if motivo_recusa:
+                st.markdown(f"""
+                <div style="background-color: #fef2f2; border: 1.5px solid #ef4444; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+                    <b style="color: #b91c1c; font-size: 15px;">❌ Atestado Anterior Não Aprovado pela Secretaria:</b><br/>
+                    <span style="color: #7f1d1d; font-size: 14px;"><i>"{motivo_recusa}"</i></span><br/><br/>
+                    <b style="color: #991b1b;">⚠️ A ausência voltou a ficar pendente para você. Por favor, anexe um novo comprovante corrigido abaixo:</b>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                with st.container():
+                    st.markdown(f"""
+                    <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                        <b>📅 Data da Ausência:</b> {ev_detalhe['Data']} ({ev_detalhe['Horário']})<br/>
+                        <b>📚 Disciplina & Turma:</b> {ev_detalhe['Disciplina']} — {ev_detalhe['Turma']}<br/>
+                        <b>📝 Motivo registrado pela Secretaria:</b> {ev_detalhe['Motivo']}<br/>
+                        <b>📌 Status Operacional:</b> {ev_detalhe['Status']}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with st.form("form_prof_anexar_evento_sec"):
+                col_u1, col_u2 = st.columns(2)
+                with col_u1:
+                    arq_atestado_ev = st.file_uploader(
+                        "Anexar Atestado Médico / Documento Comprobatório (PDF, PNG, JPG) *",
+                        type=["pdf", "png", "jpg", "jpeg"],
+                        key="upload_ev_sec"
+                    )
+                with col_u2:
+                    dt_proposta_ev = st.date_input(
+                        "Data Sugerida para Reposição da Aula *",
+                        datetime.date.today() + datetime.timedelta(days=5),
+                        key="dt_rep_ev"
+                    )
+                    hr_proposta_ev = st.text_input(
+                        "Horário e Local Proposto *",
+                        placeholder="Ex: Sábado, 09:00 - 10:40 (Sala 102 ou Remoto)",
+                        key="hr_rep_ev"
+                    )
+
+                btn_txt = "🚀 Reenviar Atestado Corrigido para a Secretaria" if motivo_recusa else "🚀 Enviar Atestado para Homologação da Secretaria"
+                if st.form_submit_button(btn_txt, type="primary", use_container_width=True):
+                    if not arq_atestado_ev:
+                        st.warning("Por favor, selecione o arquivo do atestado ou comprovante.")
+                    else:
+                        ok_anexo, msg_anexo = anexar_atestado_reposicao(
+                            supabase=supabase,
+                            ausencia_id=ev_sel_id,
+                            doc_file=arq_atestado_ev,
+                            data_reposicao=str(dt_proposta_ev),
+                            horario_reposicao=hr_proposta_ev
+                        )
+                        if ok_anexo:
+                            st.success(f"✅ {msg_anexo}")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {msg_anexo}")
+
+            st.markdown("---")
+
+        # ======================================================================
+        # SEÇÃO 2: OUTRAS AUSÊNCIAS PENDENTES DE ATESTADO (AUTO-REGISTRADAS)
+        # ======================================================================
+        outras_pendentes = df_minhas_ausencias[
+            (df_minhas_ausencias["RegistradoPor"] != "Secretaria") &
+            ((df_minhas_ausencias["Atestado"] == "Não") | (df_minhas_ausencias["Status"] == "Pendente")) &
+            (df_minhas_ausencias["Status"] != "Reposta")
         ] if not df_minhas_ausencias.empty else pd.DataFrame()
 
-        if not aus_pendentes_anexo.empty:
-            with st.expander("📤 **Anexar Atestado / Justificar Falta Pendente**", expanded=True):
-                st.info(f"Você possui **{len(aus_pendentes_anexo)}** ocorrência(s) sem atestado ou com reposição pendente.")
-                
-                opcoes_aus = {
+        if not outras_pendentes.empty:
+            with st.expander("📤 **Anexar Atestado para Ausências Auto-registradas**", expanded=False):
+                opcoes_outras = {
                     r["ID"]: f"{r['Data']} — {r['Disciplina']} ({r['Turma']} | {r['Horário']})"
-                    for _, r in aus_pendentes_anexo.iterrows()
+                    for _, r in outras_pendentes.iterrows()
                 }
-                aus_id_sel = st.selectbox(
-                    "Selecione a ausência que deseja comprovar / repor:",
-                    options=list(opcoes_aus.keys()),
-                    format_func=lambda x: opcoes_aus[x]
+                outra_sel_id = st.selectbox(
+                    "Selecione a ocorrência comunicada:",
+                    options=list(opcoes_outras.keys()),
+                    format_func=lambda x: opcoes_outras[x],
+                    key="sel_outra_ausencia"
                 )
+                with st.form("form_prof_anexar_outra"):
+                    col_o1, col_o2 = st.columns(2)
+                    with col_o1:
+                        arq_outra = st.file_uploader(
+                            "Anexar Atestado Médico (PDF, PNG, JPG) *",
+                            type=["pdf", "png", "jpg", "jpeg"],
+                            key="upload_outra"
+                        )
+                    with col_o2:
+                        dt_outra = st.date_input("Data Sugerida para Repor *", datetime.date.today() + datetime.timedelta(days=5), key="dt_outra")
+                        hr_outra = st.text_input("Horário e Local Proposto *", placeholder="Ex: Terça-feira, 18:00 - 19:40", key="hr_outra")
 
-                with st.form("form_prof_anexar_atestado"):
-                    col_u1, col_u2 = st.columns(2)
-                    with col_u1:
-                        arq_atestado = st.file_uploader(
-                            "Anexar Atestado Médico / Documento Comprobatório (PDF, PNG, JPG) *",
-                            type=["pdf", "png", "jpg", "jpeg"]
-                        )
-                    with col_u2:
-                        dt_proposta = st.date_input(
-                            "Data Sugerida para Reposição da Aula *",
-                            datetime.date.today() + datetime.timedelta(days=5)
-                        )
-                        hr_proposta = st.text_input(
-                            "Horário e Local Proposto *",
-                            placeholder="Ex: Terça-feira, 18:00 - 19:40 (Sala 204 ou Remoto)"
-                        )
-
-                    btn_submeter = st.form_submit_button("🚀 Enviar Atestado e Proposta de Reposição", type="primary", use_container_width=True)
-                    if btn_submeter:
-                        if not arq_atestado:
-                            st.warning("Por favor, selecione o arquivo do atestado ou comprovante.")
+                    if st.form_submit_button("🚀 Enviar Atestado", type="primary", use_container_width=True):
+                        if not arq_outra:
+                            st.warning("Selecione o arquivo do comprovante.")
                         else:
                             ok_anexo, msg_anexo = anexar_atestado_reposicao(
                                 supabase=supabase,
-                                ausencia_id=aus_id_sel,
-                                doc_file=arq_atestado,
-                                data_reposicao=str(dt_proposta),
-                                horario_reposicao=hr_proposta
+                                ausencia_id=outra_sel_id,
+                                doc_file=arq_outra,
+                                data_reposicao=str(dt_outra),
+                                horario_reposicao=hr_outra
                             )
                             if ok_anexo:
                                 st.success(f"✅ {msg_anexo}")

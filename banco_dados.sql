@@ -176,3 +176,30 @@ INSERT INTO turmas (codigo, curso, periodo) VALUES
 ('T-ENG24', 'Engenharia de Software', 'Matutino'),
 ('T-ADS24', 'Análise de Sistemas', 'Noturno')
 ON CONFLICT (codigo) DO NOTHING;
+
+-- ==============================================================================
+-- 8. CONFIGURAÇÃO DO BUCKET DE ARMAZENAMENTO (STORAGE: 'atestados')
+-- ==============================================================================
+-- Cria o bucket público 'atestados' para upload de comprovantes médicos
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('atestados', 'atestados', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Políticas de acesso ao bucket 'atestados'
+DROP POLICY IF EXISTS "Permitir upload de atestados para autenticados" ON storage.objects;
+CREATE POLICY "Permitir upload de atestados para autenticados"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'atestados');
+
+DROP POLICY IF EXISTS "Permitir leitura publica de atestados" ON storage.objects;
+CREATE POLICY "Permitir leitura publica de atestados"
+ON storage.objects FOR SELECT
+TO authenticated, anon
+USING (bucket_id = 'atestados');
+
+DROP POLICY IF EXISTS "Permitir atualizacao de atestados para autenticados" ON storage.objects;
+CREATE POLICY "Permitir atualizacao de atestados para autenticados"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'atestados');

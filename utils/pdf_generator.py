@@ -162,7 +162,7 @@ def gerar_pdf_relatorio(
     total_ocorr = len(df)
     subst_count = len(df[df["Status"] == "Substituída"]) if not df.empty else 0
     vagas_count = len(df[df["Status"] == "Aula Vaga"]) if not df.empty else 0
-    repost_count = len(df[df["Status"] == "Reposta"]) if not df.empty else 0
+    repost_count = len(df[df["Status"].isin(["Reposta", "Aprovada"])]) if not df.empty else 0
     pend_count = total_ocorr - subst_count - repost_count
     taxa_subst = (subst_count / total_ocorr * 100) if total_ocorr > 0 else 0.0
 
@@ -227,7 +227,7 @@ def gerar_pdf_relatorio(
 
             # Cor semântica do status
             cor_status = "#475569"
-            if status_val == "Reposta":
+            if status_val in ["Reposta", "Aprovada"]:
                 cor_status = "#16A34A"
             elif status_val == "Substituída":
                 cor_status = "#2563EB"

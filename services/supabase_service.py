@@ -1,4 +1,7 @@
 import os
+import re
+import unicodedata
+import mimetypes
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
@@ -154,6 +157,23 @@ def get_substituicoes_do_professor(supabase: Client, professor_id: str) -> pd.Da
     return df_todas[df_todas["SubstitutoID"] == professor_id]
 
 
+def sanitizar_nome_arquivo(nome_arquivo: str) -> str:
+    """
+    Remove acentos, caracteres especiais e espaços de nomes de arquivos
+    para compatibilidade com Supabase Storage e chaves S3.
+    Exemplo: 'Exercício AST11.pdf' -> 'Exercicio_AST11.pdf'
+    """
+    if not nome_arquivo:
+        return "atestado.pdf"
+    partes = nome_arquivo.rsplit(".", 1)
+    base = partes[0]
+    ext = f".{partes[1].lower()}" if len(partes) > 1 else ""
+    base_sem_acento = unicodedata.normalize("NFKD", base).encode("ascii", "ignore").decode("ascii")
+    base_limpa = re.sub(r"[^a-zA-Z0-9_-]", "_", base_sem_acento)
+    base_limpa = re.sub(r"_+", "_", base_limpa).strip("_")
+    return f"{base_limpa or 'atestado'}{ext}"
+
+
 def anexar_atestado_reposicao(
     supabase: Client,
     ausencia_id: str,
@@ -165,15 +185,25 @@ def anexar_atestado_reposicao(
     try:
         url_atestado = None
         if doc_file:
-            fpath = f"{ausencia_id}_{doc_file.name}"
+            nome_limpo = sanitizar_nome_arquivo(doc_file.name)
+            fpath = f"{ausencia_id}_{nome_limpo}"
+            mime_type = getattr(doc_file, "type", None) or mimetypes.guess_type(doc_file.name)[0] or "application/pdf"
             try:
-                supabase.storage.from_("atestados").upload(fpath, doc_file.getvalue())
+                supabase.storage.from_("atestados").upload(
+                    fpath,
+                    doc_file.getvalue(),
+                    file_options={"upsert": "true", "content-type": mime_type}
+                )
                 url_atestado = supabase.storage.from_("atestados").get_public_url(fpath)
             except Exception as e:
                 # Se arquivo já existe ou erro de upload
                 err_msg = str(e)
                 if "Duplicate" in err_msg or "already exists" in err_msg:
                     url_atestado = supabase.storage.from_("atestados").get_public_url(fpath)
+                elif "Bucket not found" in err_msg or "404" in err_msg:
+                    return False, "O bucket de armazenamento 'atestados' ainda não foi criado no Supabase. Crie o bucket com o nome 'atestados' (marcado como Public) no menu Storage do seu painel Supabase."
+                elif "InvalidKey" in err_msg or "Invalid key" in err_msg:
+                    return False, f"Nome de arquivo inválido para o Supabase Storage ({err_msg}). Tente renomear o arquivo sem caracteres especiais."
                 else:
                     return False, f"Erro ao anexar arquivo no Supabase Storage: {err_msg}"
 
@@ -195,11 +225,131 @@ def anexar_atestado_reposicao(
         else:
             supabase.table("reposicoes_atestados").insert(dados_rep).execute()
 
+        # Se havia aviso de recusa anterior, limpa a tag do motivo ao reenviar novo atestado
+        try:
+            res_aus = supabase.table("ausencias").select("motivo").eq("id", ausencia_id).execute()
+            if res_aus.data:
+                motivo_ant = res_aus.data[0].get("motivo") or ""
+                if "[Recusa da Secretaria:" in motivo_ant:
+                    linhas = [l for l in motivo_ant.split("\n") if not l.startswith("[Recusa da Secretaria:")]
+                    motivo_limpo = "\n".join(linhas).strip()
+                    supabase.table("ausencias").update({"motivo": motivo_limpo}).eq("id", ausencia_id).execute()
+        except Exception:
+            pass
+
         # Atualiza o status da ausência para 'Aguardando Homologação'
         supabase.table("ausencias").update({"status": "Aguardando Homologação"}).eq("id", ausencia_id).execute()
-        return True, "Atestado e proposta de reposição enviados para homologação da Coordenação!"
+        return True, "Atestado e proposta de reposição enviados para homologação da Secretaria!"
     except Exception as e:
         return False, f"Erro ao salvar comprovação: {e}"
+
+
+def aprovar_atestado_secretaria(supabase: Client, ausencia_id: str) -> tuple[bool, str]:
+    """Aprova e homologa o atestado médico de uma ausência pela Secretaria."""
+    try:
+        supabase.table("ausencias").update({"status": "Aprovada"}).eq("id", ausencia_id).execute()
+        supabase.table("reposicoes_atestados").update({"comprovada": True}).eq("ausencia_id", ausencia_id).execute()
+        return True, "Atestado aprovado e homologado com sucesso pela Secretaria!"
+    except Exception as e:
+        return False, f"Erro ao aprovar atestado: {e}"
+
+
+def recusar_atestado_secretaria(supabase: Client, ausencia_id: str, motivo_recusa: str) -> tuple[bool, str]:
+    """
+    Não aprova (recusa) o atestado submetido pelo professor.
+    Retorna a ausência para o status 'Pendente', registra a justificativa da recusa
+    e reseta o anexo para que o professor possa enviar um novo documento corrigido.
+    """
+    try:
+        motivo_recusa = motivo_recusa.strip()
+        if not motivo_recusa:
+            return False, "Por favor, informe a justificativa da não aprovação para orientar o professor."
+
+        # Busca o motivo atual da ausência
+        res_aus = supabase.table("ausencias").select("motivo").eq("id", ausencia_id).execute()
+        motivo_atual = res_aus.data[0]["motivo"] if res_aus.data else ""
+
+        # Remove eventual aviso anterior de recusa para não duplicar
+        linhas = [linha for linha in motivo_atual.split("\n") if not linha.startswith("[Recusa da Secretaria:")]
+        motivo_limpo = "\n".join(linhas).strip()
+
+        novo_motivo = f"{motivo_limpo}\n[Recusa da Secretaria: {motivo_recusa}]".strip()
+
+        # Atualiza a ausência para status 'Pendente' com a justificativa
+        supabase.table("ausencias").update({
+            "status": "Pendente",
+            "motivo": novo_motivo
+        }).eq("id", ausencia_id).execute()
+
+        # Reseta o comprovante em reposicoes_atestados para que volte a ficar pendente de envio
+        supabase.table("reposicoes_atestados").update({
+            "atestado_url": None,
+            "comprovada": False
+        }).eq("ausencia_id", ausencia_id).execute()
+
+        return True, "Atestado não aprovado. A ocorrência voltou a ficar pendente para o professor com a justificativa informada."
+    except Exception as e:
+        return False, f"Erro ao recusar atestado: {e}"
+
+
+def registrar_ausencia_secretaria(
+    supabase: Client,
+    professor_id: str,
+    disciplina_id: str,
+    turma_id: str,
+    data_ausencia: str,
+    horario: str,
+    motivo: str,
+    anexar_atestado_agora: bool = False,
+    doc_file=None,
+    data_reposicao: str = None,
+    horario_reposicao: str = None
+) -> tuple[bool, str]:
+    """
+    Registra uma ocorrência de falta lançada pela Secretaria.
+    - Se anexar_atestado_agora=True e houver arquivo/atestado:
+        A Secretaria anexa o comprovante médico no próprio ato do lançamento.
+        A ocorrência é encaminhada para o status 'Aguardando Homologação' da Coordenação.
+    - Se anexar_atestado_agora=False:
+        Cria um evento de falta com status 'Pendente', notificando o professor no
+        Portal do Docente para que ele mesmo anexe o atestado e a proposta de reposição.
+    """
+    try:
+        status_inicial = "Aguardando Homologação" if (anexar_atestado_agora and doc_file) else "Pendente"
+
+        # 1. Insere a ausência registrada pela Secretaria
+        res = supabase.table("ausencias").insert({
+            "professor_id": professor_id,
+            "disciplina_id": disciplina_id,
+            "turma_id": turma_id,
+            "data_ausencia": str(data_ausencia),
+            "horario": horario,
+            "motivo": motivo,
+            "status": status_inicial,
+            "registrado_por": "Secretaria"
+        }).execute()
+
+        if not res.data:
+            return False, "Erro ao registrar ausência no banco de dados."
+
+        ausencia_id = res.data[0]["id"]
+
+        # 2. Se a Secretaria optou por anexar o atestado agora
+        if anexar_atestado_agora and doc_file:
+            ok_anexo, msg_anexo = anexar_atestado_reposicao(
+                supabase=supabase,
+                ausencia_id=ausencia_id,
+                doc_file=doc_file,
+                data_reposicao=data_reposicao,
+                horario_reposicao=horario_reposicao
+            )
+            if not ok_anexo:
+                return True, f"Falta registrada, mas houve aviso no upload do atestado: {msg_anexo}"
+            return True, "Falta registrada e atestado anexado com sucesso pela Secretaria! Encaminhado para homologação da Coordenação."
+
+        return True, "Evento de falta registrado com sucesso! Foi gerada uma pendência para que o professor anexe o atestado pelo Portal do Docente."
+    except Exception as e:
+        return False, f"Erro ao registrar ausência: {e}"
 
 
 def registrar_ausencia_docente(

@@ -31,7 +31,7 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
             subst = len(df_ausencias[df_ausencias["Status"] == "Substituída"])
             vagas = len(df_ausencias[df_ausencias["Status"] == "Aula Vaga"])
             aguard = len(df_ausencias[df_ausencias["Status"] == "Aguardando Homologação"])
-            repostas = len(df_ausencias[df_ausencias["Status"] == "Reposta"])
+            repostas = len(df_ausencias[df_ausencias["Status"].isin(["Reposta", "Aprovada"])])
             taxa = (subst / total * 100) if total > 0 else 0.0
 
             c1, c2, c3, c4, c5 = st.columns(5)
@@ -48,6 +48,7 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
                 "Substituída": "#2563EB",
                 "Aula Vaga": "#DC2626",
                 "Aguardando Homologação": "#D97706",
+                "Aprovada": "#16A34A",
                 "Reposta": "#16A34A"
             }
             with g1:
@@ -88,6 +89,7 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
                     with col_info1:
                         st.write(f"**Data da Falta:** {r['Data']} ({r['Horário']})")
                         st.write(f"**Motivo:** {r['Motivo']}")
+                        st.write(f"**Registrado por:** {r.get('RegistradoPor', 'Secretaria')}")
                     with col_info2:
                         if not rep_det.empty:
                             st.write(f"**Data Proposta para Reposição:** {rep_det.iloc[0].get('data_reposicao')}")
@@ -147,7 +149,7 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
                     lista_turmas = ["Todas as Turmas"] + sorted(list(df_ausencias["Turma"].dropna().unique()))
                     turma_sel = st.selectbox("Turma:", lista_turmas)
                 with col_f5:
-                    status_opcoes = ["Todos os Status", "Pendente", "Substituída", "Aula Vaga", "Aguardando Homologação", "Reposta"]
+                    status_opcoes = ["Todos os Status", "Pendente", "Substituída", "Aula Vaga", "Aguardando Homologação", "Aprovada", "Reposta"]
                     status_sel = st.selectbox("Status Operacional:", status_opcoes)
 
                 # Seletor de data personalizada quando aplicável
@@ -168,7 +170,7 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
                 df_filtrado = df_filtrado[df_filtrado["Status"].isin(["Aula Vaga", "Aguardando Homologação", "Pendente"])]
                 titulo_relatorio = "Relatório de Aulas Vagas e Reposições Pendentes"
             elif tipo_rel.startswith("✅"):
-                df_filtrado = df_filtrado[df_filtrado["Status"] == "Reposta"]
+                df_filtrado = df_filtrado[df_filtrado["Status"].isin(["Reposta", "Aprovada"])]
                 titulo_relatorio = "Relatório Oficial de Reposições de Aula Homologadas"
             elif tipo_rel.startswith("👨‍🏫"):
                 titulo_relatorio = f"Relatório Analítico de Frequência — {prof_sel}"
@@ -208,7 +210,7 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
             q_total = len(df_filtrado)
             q_subst = len(df_filtrado[df_filtrado["Status"] == "Substituída"])
             q_vagas = len(df_filtrado[df_filtrado["Status"] == "Aula Vaga"])
-            q_repostas = len(df_filtrado[df_filtrado["Status"] == "Reposta"])
+            q_repostas = len(df_filtrado[df_filtrado["Status"].isin(["Reposta", "Aprovada"])])
             taxa_f = (q_subst / q_total * 100) if q_total > 0 else 0.0
 
             r1, r2, r3, r4 = st.columns(4)
