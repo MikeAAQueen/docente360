@@ -42,7 +42,9 @@ pie title Status de Implementação dos Requisitos
 1. **Banco de Dados Modelado e Automatizado ([`banco_dados.sql`](file:///d:/Projects/docente360/banco_dados.sql)):**
    - 7 tabelas relacionais (`professores`, `disciplinas`, `turmas`, `ausencias`, `substituicoes`, `reposicoes_atestados`, `usuarios`) com políticas RLS, trigger automática `handle_new_user()` para sincronização de contas e vínculo por e-mail com `professores`, configuração do bucket `atestados` e dados iniciais (_seeds_).
 2. **Autenticação Oficial e Vínculo Inteligente de Docentes ([`services/auth_service.py`](file:///d:/Projects/docente360/services/auth_service.py), [`views/login.py`](file:///d:/Projects/docente360/views/login.py)):**
-   - Login e cadastro para os 4 perfis institucionais. Para o perfil **Professor**, permite vincular a conta a um docente pré-cadastrado pela Secretaria ou criar novo registro simultaneamente.
+   - Login e cadastro para os 4 perfis institucionais com confirmação de senha dupla.
+   - Para o perfil **Professor**, segregação estrita entre docentes pré-cadastrados pela Secretaria e auto-cadastros: a lista *"Vincular a um Professor já cadastrado pela Secretaria"* exibe exclusivamente os docentes inseridos pela Secretaria ainda não vinculados (filtrando professores auto-registrados como Prof. Mike ou contas já ativadas).
+   - Quando um docente realiza auto-cadastro ou vincula sua conta, o status é registrado para manter o isolamento e integridade dos vínculos.
 3. **Módulo Operacional da Secretaria 100% Funcional ([`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py)):**
    - **Lançamento em Fluxo Duplo:** Permite anexar o atestado imediatamente no ato do registro ou criar um evento pendente para o professor anexar pelo Portal do Docente.
    - **Substituições e Aulas Vagas:** Alocação de substituto ou classificação formal como `"Aula Vaga"`.
@@ -152,13 +154,39 @@ d:\Projects\docente360\
 │   ├── __init__.py
 │   └── pdf_generator.py         # Motor ReportLab em formato Paisagem com NumberedCanvas, KPIs e bloco de assinaturas
 │
-└── fases_do_projeto/            # Documentação Formal Completa das 6 Fases do Projeto
-    ├── 01-Fase-1-Levantamento-e-requisitos.md
-    ├── 02-Fase-2-Modelagem-e-prototipacao.md
-    ├── 03-Fase-3-Desenvolvimento-do-modulo.md
-    ├── 04-Fase-4-Testes-e-validacao.md
-    ├── 05-Fase-5-Implantacao-e-treinamento.md
-    └── 06-Fase-6-Avaliacao-e-relatorio-final.md
+└── fases_do_projeto/            # Documentação Formal Completa das 6 Fases do Projeto (26 Documentos)
+    ├── 01-Fase-1-Levantamento-e-requisitos/
+    │   ├── 01-Realizar-entrevistas-com-a-secretaria-de-coordenacao-e-coord.md
+    │   ├── 02-Mapear-os-processos-manuais-existentes-e-identificar-pontos.md
+    │   ├── 03-Definir-os-requisitos-funcionais-e-nao-funcionais-do-modulo.md
+    │   └── 04-Elaborar-o-documento-de-especificacao-de-requisitos-e-valida.md
+    ├── 02-Fase-2-Modelagem-e-prototipacao/
+    │   ├── 01-Modelar-o-banco-de-dados-com-entidades-como-professores-disc.md
+    │   ├── 02-Projetar-a-arquitetura-do-modulo-e-sua-integracao-com-o-sist.md
+    │   ├── 03-Criar-prototipos-de-baixa-fidelidade-das-telas-principais-la.md
+    │   └── 04-Validar-os-prototipos-com-a-secretaria-e-coordenadores-e-aju.md
+    ├── 03-Fase-3-Desenvolvimento-do-modulo/
+    │   ├── 01-Desenvolver-o-painel-de-lancamento-diario-de-ausencias-com-s.md
+    │   ├── 02-Implementar-a-gestao-de-substituicoes-com-atribuicao-de-subs.md
+    │   ├── 03-Desenvolver-o-controle-de-atestados-e-reposicoes-permitindo.md
+    │   ├── 04-Criar-o-dashboard-do-coordenador-com-indicadores-e-filtros-p.md
+    │   ├── 05-Implementar-a-geracao-de-relatorios-em-PDF-com-historico-de.md
+    │   └── 06-Garantir-que-a-interface-seja-responsiva-para-acesso-via-dis.md
+    ├── 04-Fase-4-Testes-e-validacao/
+    │   ├── 01-Executar-testes-unitarios-e-de-integracao-para-validar-as-fu.md
+    │   ├── 02-Realizar-testes-de-usabilidade-com-a-secretaria-e-coordenado.md
+    │   ├── 03-Coletar-feedback-dos-usuarios-e-corrigir-eventuais-problemas.md
+    │   └── 04-Validar-o-cumprimento-dos-requisitos-e-a-integracao-com-o-si.md
+    ├── 05-Fase-5-Implantacao-e-treinamento/
+    │   ├── 01-Preparar-o-ambiente-de-producao-e-realizar-a-implantacao-do.md
+    │   ├── 02-Elaborar-o-manual-do-usuario-com-instrucoes-claras-de-uso.md
+    │   ├── 03-Conduzir-treinamentos-praticos-para-a-secretaria-coordenador.md
+    │   └── 04-Realizar-acompanhamento-pos-implantacao-e-suporte-inicial.md
+    └── 06-Fase-6-Avaliacao-e-relatorio-final/
+        ├── 01-Coletar-metricas-de-uso-e-desempenho-do-modulo-tempo-de-regi.md
+        ├── 02-Comparar-os-resultados-com-os-objetivos-e-indicadores-defini.md
+        ├── 03-Elaborar-o-relatorio-final-do-projeto-com-resultados-licoes.md
+        └── 04-Apresentar-os-resultados-para-a-instituicao-parceira-e-comun.md
 ```
 
 ---

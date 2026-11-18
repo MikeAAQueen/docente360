@@ -97,10 +97,21 @@ def render_cadastros_base(supabase: Client, perfil_usuario: str = "Secretaria"):
                     df_prof_exibir["departamento"].fillna("").str.lower().str.contains(busca_prof, na=False)
                 ]
 
-            df_tabela_prof = df_prof_exibir[["nome", "email", "departamento"]].rename(columns={
+            import re
+            df_prof_exibir["Origem"] = df_prof_exibir["departamento"].apply(
+                lambda d: "👤 Auto-cadastro (Docente)" if "[Auto-registro]" in str(d or "")
+                else ("🔗 Secretaria (Vinculado)" if "[Vinculado]" in str(d or "")
+                else "🏫 Secretaria")
+            )
+            df_prof_exibir["depto_formatado"] = df_prof_exibir["departamento"].apply(
+                lambda d: re.sub(r"\s*\[.*?\]", "", str(d or "")).strip() or "Geral"
+            )
+
+            df_tabela_prof = df_prof_exibir[["nome", "email", "depto_formatado", "Origem"]].rename(columns={
                 "nome": "Nome do Docente",
                 "email": "E-mail Institucional",
-                "departamento": "Departamento / Área"
+                "depto_formatado": "Departamento / Área",
+                "Origem": "Origem do Cadastro"
             })
             st.dataframe(df_tabela_prof, use_container_width=True, hide_index=True)
 

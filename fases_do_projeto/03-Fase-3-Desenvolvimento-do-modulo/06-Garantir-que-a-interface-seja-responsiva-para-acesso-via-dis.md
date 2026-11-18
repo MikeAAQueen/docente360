@@ -8,26 +8,33 @@
 
 ## 1. Configuração Global e Layout Fluido ([`app.py`](file:///d:/Projects/docente360/app.py))
 
-A aplicação é inicializada com `st.set_page_config(layout="wide", initial_sidebar_state="expanded")`, aproveitando 100% da largura útil em monitores desktop e adaptando automaticamente os grids de colunas (`st.columns`) em blocos empilhados quando acessada a partir de tablets ou smartphones (**RNF01**).
+A aplicação é inicializada com `st.set_page_config(layout="wide", initial_sidebar_state="expanded")` e tema configurado via [`.streamlit/config.toml`](file:///d:/Projects/docente360/.streamlit/config.toml) (`primaryColor = "#2563EB"`, `backgroundColor = "#F8FAFC"`), aproveitando 100% da largura útil em monitores desktop e adaptando automaticamente os grids de colunas (`st.columns`) em blocos empilhados quando acessada a partir de tablets ou smartphones (**RNF01**).
 
 ---
 
 ## 2. Design System Centralizado ([`components/styles.py`](file:///d:/Projects/docente360/components/styles.py))
 
-Para superar as limitações visuais padrão do Streamlit, a função `apply_custom_styles()` injeta uma folha de estilos CSS customizada com três pilares de usabilidade:
+Para elevar a maturidade visual e superar as limitações padrão do Streamlit, a função `apply_custom_styles()` injeta uma folha de estilos CSS customizada com tipografia profissional (*Plus Jakarta Sans* e *Inter*) e elementos modernos:
 
-### 2.1 Abas de Navegação Estilo *Pills* com Quebra Responsiva (`flex-wrap`)
-- Por padrão, quando uma tela possui muitas abas no Streamlit, os títulos são truncados ou escondidos sob setas laterais.
-- O CSS implementado em [`components/styles.py`](file:///d:/Projects/docente360/components/styles.py#L40-L99) estiliza `div[data-baseweb="tab-list"]` como uma barra moderna de *pills* com `flex-wrap: wrap !important` e `overflow-x: visible !important`, ocultando as setas de corte e destacando a aba ativa em azul royal (`#1E40AF`) com texto branco em negrito.
+### 2.1 Header com Gradiente Executivo e Glassmorphism
+- Cabeçalho dinâmico com gradiente azul institucional (`#1E3A8A` a `#3B82F6`), microefeito circular de iluminação e badge translúcido de status do sistema (`🟢 Sistema Operacional`).
 
-### 2.2 Badges Semânticos de Identificação de Perfil
-Na barra lateral (`render_sidebar_user`), cada perfil autenticado recebe um badge em formato pílula (`border-radius: 9999px`) com paleta cromática exclusiva:
-- **Secretaria (`.badge-sec`):** Azul institucional (`#DBEAFE` / `#1E40AF`)
-- **Coordenador Acadêmico (`.badge-coord`):** Âmbar/Ouro (`#FEF3C7` / `#92400E`)
-- **Professor (`.badge-prof`):** Roxo acadêmico (`#EDE9FE` / `#5B21B6`)
-- **Administrador (`.badge-admin`):** Verde esmeralda (`#D1FAE5` / `#065F46`)
+### 2.2 Abas de Navegação Estilo *Pills* Elevadas (`flex-wrap`)
+- A barra de abas `div[data-baseweb="tab-list"]` adota visual de pílulas flutuantes com fundo neutro suave (`#F1F5F9`), bordas refinadas e `flex-wrap: wrap !important`, eliminando cortes de texto.
+- A aba ativa recebe elevação em cartão branco com sombra suave (`box-shadow`), tipografia em negrito e destaque no azul da marca (`#2563EB`).
 
-### 2.3 Componentes Interativos Nativos de Alta Responsividade
-- **Tabelas fluidas (`use_container_width=True`, `hide_index=True`):** Todas as tabelas ajustam sua largura automaticamente à tela do dispositivo, utilizando `st.column_config.LinkColumn` para botões clicáveis (`📄 Ver Atestado`) e `CheckboxColumn` para indicadores booleanos (`AulaVaga`).
-- **Visualizadores Embutidos de Documentos:** O preview de atestados médicos adapta-se automaticamente ao container (`use_container_width=True` para imagens e `width="100%"` para `<iframe>` de PDFs), permitindo leitura confortável em qualquer resolução de tela.
+### 2.3 Cards de Métricas com Elevação Interativa (`st.metric`)
+- Os cartões de indicadores ganham fundo branco sólido, bordas sutis e efeito de elevação (*hover lift*) ao passar o mouse, com valores numéricos de alta legibilidade.
+
+### 2.4 Badges Semânticos e Sidebar Moderna
+- Barra lateral com card de cabeçalho escuro para a marca institucional, box dedicado de informações do usuário logado e badges semânticos cromáticos para cada perfil:
+  - **Secretaria (`.badge-sec`):** Azul institucional (`#DBEAFE` / `#1D4ED8`)
+  - **Coordenador Acadêmico (`.badge-coord`):** Âmbar/Ouro (`#FEF3C7` / `#B45309`)
+  - **Professor (`.badge-prof`):** Roxo acadêmico (`#EDE9FE` / `#6D28D9`)
+  - **Administrador (`.badge-admin`):** Verde esmeralda (`#D1FAE5` / `#047857`)
+
+### 2.5 Componentes Interativos Nativos e Gráficos Plotly
+- **Tabelas fluidas (`use_container_width=True`, `hide_index=True`):** Utilizam `st.column_config.LinkColumn` para botões clicáveis (`📄 Ver Atestado`) e `CheckboxColumn` para indicadores booleanos (`AulaVaga`).
+- **Visualizadores Embutidos:** Preview de atestados médicos com `<iframe width="100%" height="500px">` e `st.image(use_container_width=True)`.
+- **Gráficos Plotly Estilizados:** Fundo transparente integrado, tipografia unificada e paleta de cores consistente em toda a plataforma.
 

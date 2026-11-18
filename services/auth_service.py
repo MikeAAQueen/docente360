@@ -90,11 +90,14 @@ def handle_signup(
                 if prof_busca.data and len(prof_busca.data) > 0:
                     prof_id = prof_busca.data[0]["id"]
                 else:
-                    # Cria automaticamente o cadastro de apoio para o novo docente
+                    # Cria automaticamente o cadastro de apoio para o novo docente com marcador de auto-registro
+                    # para não poluir a lista de professores pendentes da secretaria
+                    base_cargo = cargo.strip() if cargo else "Geral"
+                    depto_auto = f"{base_cargo} [Auto-registro]"
                     novo_prof = supabase.table("professores").insert({
                         "nome": nome.strip(),
                         "email": email.strip().lower(),
-                        "departamento": cargo.strip() if cargo else "Geral"
+                        "departamento": depto_auto
                     }).execute()
                     if novo_prof.data and len(novo_prof.data) > 0:
                         prof_id = novo_prof.data[0]["id"]
@@ -102,9 +105,18 @@ def handle_signup(
                 pass
         elif perfil == "Professor" and prof_id:
             try:
-                # Mantém o e-mail consistente na tabela professores
+                # Mantém o e-mail consistente e sinaliza o vínculo para liberar da lista de pré-cadastros
+                prof_atual = supabase.table("professores").select("departamento").eq("id", prof_id).execute()
+                dep_atual = prof_atual.data[0]["departamento"] if (prof_atual.data and len(prof_atual.data) > 0) else ""
+                dep_atual_str = str(dep_atual or "")
+                if "[Vinculado]" not in dep_atual_str and "[Auto-registro]" not in dep_atual_str:
+                    dep_novo = f"{dep_atual_str} [Vinculado]".strip()
+                else:
+                    dep_novo = dep_atual_str
+
                 supabase.table("professores").update({
-                    "email": email.strip().lower()
+                    "email": email.strip().lower(),
+                    "departamento": dep_novo
                 }).eq("id", prof_id).execute()
             except Exception:
                 pass

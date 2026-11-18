@@ -79,13 +79,22 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
             else:
                 g1, g2 = st.columns(2)
                 cores = {
-                    "Pendente": "#CA8A04",
+                    "Pendente": "#D97706",
                     "Substituída": "#2563EB",
-                    "Aula Vaga": "#DC2626",
-                    "Aguardando Homologação": "#D97706",
-                    "Aprovada": "#16A34A",
-                    "Reposta": "#16A34A"
+                    "Aula Vaga": "#EF4444",
+                    "Aguardando Homologação": "#F59E0B",
+                    "Aprovada": "#10B981",
+                    "Reposta": "#059669"
                 }
+                layout_custom = {
+                    "font": {"family": "Plus Jakarta Sans, sans-serif", "color": "#1E293B"},
+                    "paper_bgcolor": "rgba(255,255,255,1)",
+                    "plot_bgcolor": "rgba(248,250,252,0.6)",
+                    "margin": {"l": 20, "r": 20, "t": 48, "b": 20},
+                    "title": {"font": {"size": 15, "weight": 700}},
+                    "legend": {"orientation": "h", "yanchor": "bottom", "y": -0.25, "xanchor": "center", "x": 0.5}
+                }
+
                 with g1:
                     fig_p = px.pie(
                         df_dash,
@@ -93,8 +102,10 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
                         title="Distribuição das Ocorrências por Status",
                         color="Status",
                         color_discrete_map=cores,
-                        hole=0.35
+                        hole=0.45
                     )
+                    fig_p.update_layout(**layout_custom)
+                    fig_p.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=2)))
                     st.plotly_chart(fig_p, use_container_width=True)
                 with g2:
                     fig_b = px.bar(
@@ -104,6 +115,7 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
                         title="Frequência de Ausências por Docente",
                         color_discrete_map=cores
                     )
+                    fig_b.update_layout(**layout_custom)
                     st.plotly_chart(fig_b, use_container_width=True)
 
                 g3, g4 = st.columns(2)
@@ -115,6 +127,7 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
                         title="Ausências por Turma e Curso",
                         color_discrete_map=cores
                     )
+                    fig_t.update_layout(**layout_custom)
                     st.plotly_chart(fig_t, use_container_width=True)
                 with g4:
                     fig_h = px.bar(
@@ -124,6 +137,7 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
                         title="Frequência por Horário / Bloco de Aula",
                         color_discrete_map=cores
                     )
+                    fig_h.update_layout(**layout_custom)
                     st.plotly_chart(fig_h, use_container_width=True)
 
     # --------------------------------------------------------------------------

@@ -30,14 +30,14 @@ O **Docente360** é uma plataforma web desenvolvida em **Python (Streamlit)** e 
 
 ## 📂 Documentação das Fases do Projeto
 
-A documentação completa de engenharia de software está organizada na pasta [`fases_do_projeto/`](file:///d:/Projects/docente360/fases_do_projeto) e nos documentos de governança na raiz:
+A documentação detalhada de engenharia de software está organizada na pasta [`fases_do_projeto/`](file:///d:/Projects/docente360/fases_do_projeto) em **6 subpastas contendo 26 documentos temáticos**:
 
-1. [01 — Fase 1: Levantamento e Requisitos](file:///d:/Projects/docente360/fases_do_projeto/01-Fase-1-Levantamento-e-requisitos.md)
-2. [02 — Fase 2: Modelagem e Prototipação](file:///d:/Projects/docente360/fases_do_projeto/02-Fase-2-Modelagem-e-prototipacao.md)
-3. [03 — Fase 3: Desenvolvimento do Módulo](file:///d:/Projects/docente360/fases_do_projeto/03-Fase-3-Desenvolvimento-do-modulo.md)
-4. [04 — Fase 4: Testes e Validação](file:///d:/Projects/docente360/fases_do_projeto/04-Fase-4-Testes-e-validacao.md)
-5. [05 — Fase 5: Implantação e Treinamento](file:///d:/Projects/docente360/fases_do_projeto/05-Fase-5-Implantacao-e-treinamento.md)
-6. [06 — Fase 6: Avaliação e Relatório Final](file:///d:/Projects/docente360/fases_do_projeto/06-Fase-6-Avaliacao-e-relatorio-final.md)
+- **[01-Fase-1-Levantamento-e-requisitos/](file:///d:/Projects/docente360/fases_do_projeto/01-Fase-1-Levantamento-e-requisitos):** Levantamento de domínio (sem entrevistas presenciais em faculdade), mapeamento de processos AS-IS vs. TO-BE, especificação de RFs/RNs/RNFs e documento consolidado de escopo.
+- **[02-Fase-2-Modelagem-e-prototipacao/](file:///d:/Projects/docente360/fases_do_projeto/02-Fase-2-Modelagem-e-prototipacao):** Modelagem de dados (DER de 7 tabelas), arquitetura modular em camadas, protótipos de baixa fidelidade e validação heurística de usabilidade.
+- **[03-Fase-3-Desenvolvimento-do-modulo/](file:///d:/Projects/docente360/fases_do_projeto/03-Fase-3-Desenvolvimento-do-modulo):** Lançamento diário em fluxo duplo, mural de candidatura docente e alocação de substitutos, controle de atestados e reposições, dashboard da coordenação, relatórios PDF em paisagem e design system responsivo.
+- **[04-Fase-4-Testes-e-validacao/](file:///d:/Projects/docente360/fases_do_projeto/04-Fase-4-Testes-e-validacao):** Testes unitários/integração, testes de usabilidade cronometrados por simulação de perfis, registro de correções e matriz final de cumprimento de 100% dos requisitos.
+- **[05-Fase-5-Implantacao-e-treinamento/](file:///d:/Projects/docente360/fases_do_projeto/05-Fase-5-Implantacao-e-treinamento):** Guia técnico de implantação no Supabase, manual do usuário por perfil, roteiro de capacitação autoguiada em 5 exercícios e guia de suporte inicial.
+- **[06-Fase-6-Avaliacao-e-relatorio-final/](file:///d:/Projects/docente360/fases_do_projeto/06-Fase-6-Avaliacao-e-relatorio-final):** Coleta de métricas (registro em < 30s), comparativo de metas vs. resultados, relatório final do projeto e roteiro de apresentação/demonstração executiva ao vivo.
 - **Documentos Complementares na Raiz:**
   - [Especificação Detalhada de Requisitos (`levantamento_requisitos.md`)](file:///d:/Projects/docente360/levantamento_requisitos.md)
   - [Estado Atual e Rastreabilidade do Projeto (`PROJECT_STATE.md`)](file:///d:/Projects/docente360/PROJECT_STATE.md)

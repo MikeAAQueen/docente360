@@ -2,24 +2,33 @@ import streamlit as st
 import pandas as pd
 from supabase import Client
 from services.auth_service import handle_login, handle_signup
-from services.supabase_service import get_professores
+from services.supabase_service import get_professores, get_professores_disponiveis_vinculo
 
 def render_login_view(supabase: Client):
     """Renderiza a tela de login e de cadastro de novas contas institucionais."""
-    col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
+    col_l1, col_l2, col_l3 = st.columns([1, 2.2, 1])
     with col_l2:
-        st.markdown('<div class="main-title" style="text-align: center;">🎓 Docente360</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sub-title" style="text-align: center;">Portal Integrado de Gestão Acadêmica — Secretaria, Coordenação & Docentes</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align: center; padding: 20px 0 10px 0;">
+            <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 18px; background: linear-gradient(135deg, #1E3A8A, #2563EB); box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25); margin-bottom: 14px;">
+                <span style="font-size: 32px;">🎓</span>
+            </div>
+            <h1 style="font-size: 2rem; font-weight: 800; color: #0F172A; margin: 0; letter-spacing: -0.025em;">Docente360</h1>
+            <p style="font-size: 0.95rem; color: #64748B; margin-top: 6px; margin-bottom: 24px;">Plataforma Integrada de Gestão de Ausências, Substituições & Frequência</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-        tab_login, tab_cadastro = st.tabs(["🔑 Entrar no Sistema", "📝 Criar Nova Conta de Usuário"])
+        tab_login, tab_cadastro = st.tabs(["🔑 Entrar no Sistema", "📝 Criar Nova Conta"])
 
         # ABA 1: LOGIN
         with tab_login:
-            st.markdown("##### Identifique-se com sua conta institucional")
             with st.form("form_login"):
+                st.markdown("#### Identificação Institucional")
+                st.caption("Acesse com o e-mail institucional e a senha cadastrados.")
                 login_email = st.text_input("E-mail Institucional", placeholder="ex: seu.email@escola.edu.br")
-                login_senha = st.text_input("Senha", type="password")
-                btn_entrar = st.form_submit_button("Acessar Sistema", use_container_width=True, type="primary")
+                login_senha = st.text_input("Senha de Acesso", type="password", placeholder="••••••••")
+                st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+                btn_entrar = st.form_submit_button("Acessar Painel", use_container_width=True, type="primary")
 
                 if btn_entrar:
                     if not login_email or not login_senha:
@@ -39,7 +48,7 @@ def render_login_view(supabase: Client):
 
             # FLUXO ESPECÍFICO PARA O PERFIL PROFESSOR
             if cad_perfil == "Professor":
-                df_prof = get_professores(supabase)
+                df_prof = get_professores_disponiveis_vinculo(supabase)
                 
                 modo_prof = st.radio(
                     "Tipo de cadastro docente:",
@@ -52,12 +61,12 @@ def render_login_view(supabase: Client):
 
                 if modo_prof.startswith("🔗"):
                     if df_prof.empty:
-                        st.info("ℹ️ Não há professores pré-cadastrados no sistema ainda. Por favor, utilize a opção de novo cadastro.")
+                        st.info("ℹ️ Não há professores pré-cadastrados pela Secretaria disponíveis para vínculo no momento. Por favor, utilize a opção de novo cadastro abaixo.")
                     else:
-                        st.caption("💡 Selecione seu nome abaixo para conectar seu login às turmas, matérias e faltas já cadastradas.")
+                        st.caption("💡 Selecione seu nome abaixo para conectar seu login às turmas, matérias e faltas já cadastradas pela Secretaria.")
                         
                         opcoes_prof = {
-                            r["id"]: f"👨‍🏫 {r['nome']} — {r['email']} ({r['departamento'] or 'Geral'})"
+                            r["id"]: f"👨‍🏫 {r['nome']} — {r['email']} ({r.get('departamento_limpo', r['departamento']) or 'Geral'})"
                             for _, r in df_prof.iterrows()
                         }
                         prof_sel_id = st.selectbox(
@@ -69,8 +78,9 @@ def render_login_view(supabase: Client):
                         prof_sel = df_prof[df_prof["id"] == prof_sel_id].iloc[0]
 
                         with st.form("form_cadastro_vinculo_prof"):
+                            depto_label = prof_sel.get("departamento_limpo") or prof_sel.get("departamento") or "Geral"
                             st.markdown(f"**Docente:** {prof_sel['nome']}")
-                            st.markdown(f"**Departamento / Área:** {prof_sel['departamento'] or 'Geral'}")
+                            st.markdown(f"**Departamento / Área:** {depto_label}")
                             
                             email_sugerido = prof_sel["email"]
                             cad_email = st.text_input("Confirmar E-mail Institucional *", value=email_sugerido)
@@ -93,7 +103,7 @@ def render_login_view(supabase: Client):
                                         password=cad_senha,
                                         nome=prof_sel["nome"],
                                         perfil="Professor",
-                                        cargo=prof_sel["departamento"] or "Docente",
+                                        cargo=depto_label or "Docente",
                                         professor_id=prof_sel_id
                                     )
                 else:

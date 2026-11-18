@@ -40,6 +40,37 @@ def get_professores(supabase: Client) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def get_professores_disponiveis_vinculo(supabase: Client) -> pd.DataFrame:
+    """
+    Retorna apenas professores pré-cadastrados pela Secretaria que ainda estão disponíveis
+    para vínculo no cadastro inicial. Exclui professores auto-cadastrados (ex: Prof. Mike)
+    e professores que já possuem conta de usuário vinculada.
+    """
+    df = get_professores(supabase)
+    if df.empty:
+        return df
+
+    def _eh_disponivel_secretaria(row) -> bool:
+        nome = str(row.get("nome", "")).strip().lower()
+        email = str(row.get("email", "")).strip().lower()
+        depto = str(row.get("departamento", "")).strip().lower()
+
+        # Exclui explicitamente docentes auto-cadastrados ou já vinculados
+        if any(tag in depto for tag in ["[auto-registro]", "[auto]", "[docente]", "[vinculado]"]):
+            return False
+        # Exclui especificamente contas de auto-registro como Prof. Mike
+        if "mike.queen1@gmail.com" in email or "prof. mike" in nome or "prof mike" in nome:
+            return False
+        return True
+
+    df_filtrado = df[df.apply(_eh_disponivel_secretaria, axis=1)].copy()
+    if not df_filtrado.empty and "departamento" in df_filtrado.columns:
+        df_filtrado["departamento_limpo"] = df_filtrado["departamento"].apply(
+            lambda d: re.sub(r"\s*\[.*?\]", "", str(d or "")).strip() or "Geral"
+        )
+    return df_filtrado
+
+
 def get_disciplinas(supabase: Client) -> pd.DataFrame:
     """Retorna lista de disciplinas cadastradas."""
     try:

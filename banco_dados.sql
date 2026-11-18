@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS professores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nome VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    departamento VARCHAR(100),
+    departamento VARCHAR(100), -- Suporta identificador de proveniência [Auto-registro] ou [Vinculado]
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
