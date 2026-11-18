@@ -288,6 +288,91 @@ def apply_custom_styles():
             box-shadow: var(--shadow-sm);
         }
 
+        /* ---------------------------------------------------------------------
+           BORDAS VISÍVEIS E NÍTIDAS PARA CAMPOS DE TEXTO, SENHA E SELEÇÃO
+           --------------------------------------------------------------------- */
+        /* Container principal de inputs (Texto, Senha, Número, Data, Hora) */
+        div[data-baseweb="input"],
+        [data-testid="stTextInputRootElement"],
+        [data-testid="stNumberInputContainer"] {
+            border: 1.5px solid #CBD5E1 !important; /* Borda cinza suave e bem definida */
+            border-radius: 8px !important;
+            background-color: #FFFFFF !important;
+            transition: all 0.2s ease-in-out !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        /* Remove duplicidade de bordas internas no BaseWeb */
+        div[data-baseweb="input"] div[data-baseweb="base-input"] {
+            border: none !important;
+            box-shadow: none !important;
+            background-color: transparent !important;
+        }
+
+        /* Caixas de Texto Grandes (Text Area) */
+        div[data-baseweb="textarea"],
+        [data-testid="stTextAreaRootElement"] {
+            border: 1.5px solid #CBD5E1 !important;
+            border-radius: 8px !important;
+            background-color: #FFFFFF !important;
+            transition: all 0.2s ease-in-out !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+        }
+        div[data-baseweb="textarea"] > div {
+            border: none !important;
+            background-color: transparent !important;
+        }
+
+        /* Caixas de Seleção (Selectbox / Multiselect) */
+        div[data-baseweb="select"] > div {
+            border: 1.5px solid #CBD5E1 !important;
+            border-radius: 8px !important;
+            background-color: #FFFFFF !important;
+            transition: all 0.2s ease-in-out !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        /* Efeito Hover (ao passar o cursor sobre o campo) */
+        div[data-baseweb="input"]:hover,
+        div[data-baseweb="textarea"]:hover,
+        div[data-baseweb="select"] > div:hover,
+        [data-testid="stTextInputRootElement"]:hover {
+            border-color: #94A3B8 !important;
+        }
+
+        /* Efeito Focus (quando o usuário clica para digitar) */
+        div[data-baseweb="input"]:focus-within,
+        div[data-baseweb="textarea"]:focus-within,
+        div[data-baseweb="select"] > div:focus-within,
+        [data-testid="stTextInputRootElement"]:focus-within {
+            border-color: #2563EB !important; /* Azul institucional vibrante */
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18) !important;
+        }
+
+        /* Tipografia dos valores digitados e preenchidos */
+        div[data-baseweb="input"] input,
+        div[data-baseweb="textarea"] textarea {
+            color: #0F172A !important;
+            font-size: 0.95rem !important;
+        }
+
+        /* Ícones utilitários internos (ex: botão de exibir/ocultar senha) */
+        div[data-baseweb="input"] button {
+            color: #64748B !important;
+        }
+        div[data-baseweb="input"] button:hover {
+            color: #1E293B !important;
+        }
+
+        /* Rótulos dos campos com peso visual adequado */
+        [data-testid="stWidgetLabel"] p,
+        [data-testid="stWidgetLabel"] label {
+            font-weight: 600 !important;
+            color: #1E293B !important;
+            font-size: 0.88rem !important;
+            margin-bottom: 4px !important;
+        }
+
         /* Estilização dos botões primários */
         button[kind="primary"] {
             background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
