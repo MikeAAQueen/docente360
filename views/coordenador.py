@@ -27,11 +27,43 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
         if df_ausencias.empty:
             st.info("Nenhuma ausência registrada no sistema até o momento.")
         else:
-            total = len(df_ausencias)
-            subst = len(df_ausencias[df_ausencias["Status"] == "Substituída"])
-            vagas = len(df_ausencias[df_ausencias["Status"] == "Aula Vaga"])
-            aguard = len(df_ausencias[df_ausencias["Status"] == "Aguardando Homologação"])
-            repostas = len(df_ausencias[df_ausencias["Status"].isin(["Reposta", "Aprovada"])])
+            # Filtros interativos do Dashboard (RF05)
+            col_df1, col_df2, col_df3 = st.columns(3)
+            with col_df1:
+                dash_periodo = st.selectbox(
+                    "📅 Período de Análise:",
+                    ["Todo o Histórico", "Mês Atual", "Últimos 30 Dias", "Últimos 7 Dias"],
+                    key="dash_coord_periodo"
+                )
+            with col_df2:
+                turmas_disp = ["Todas as Turmas"] + sorted(list(df_ausencias["Turma"].dropna().unique()))
+                dash_turma = st.selectbox("🎓 Filtrar por Turma:", turmas_disp, key="dash_coord_turma")
+            with col_df3:
+                disc_disp = ["Todas as Disciplinas"] + sorted(list(df_ausencias["Disciplina"].dropna().unique()))
+                dash_disc = st.selectbox("📖 Filtrar por Disciplina:", disc_disp, key="dash_coord_disc")
+
+            df_dash = df_ausencias.copy()
+            if dash_turma != "Todas as Turmas":
+                df_dash = df_dash[df_dash["Turma"] == dash_turma]
+            if dash_disc != "Todas as Disciplinas":
+                df_dash = df_dash[df_dash["Disciplina"] == dash_disc]
+
+            if dash_periodo != "Todo o Histórico":
+                hoje = datetime.date.today()
+                df_dash["_dt"] = pd.to_datetime(df_dash["Data"], errors="coerce").dt.date
+                if dash_periodo == "Mês Atual":
+                    df_dash = df_dash[(df_dash["_dt"] >= datetime.date(hoje.year, hoje.month, 1)) & (df_dash["_dt"] <= hoje)]
+                elif dash_periodo == "Últimos 30 Dias":
+                    df_dash = df_dash[df_dash["_dt"] >= (hoje - datetime.timedelta(days=30))]
+                elif dash_periodo == "Últimos 7 Dias":
+                    df_dash = df_dash[df_dash["_dt"] >= (hoje - datetime.timedelta(days=7))]
+                df_dash = df_dash.drop(columns=["_dt"])
+
+            total = len(df_dash)
+            subst = len(df_dash[(df_dash["Status"] == "Substituída") | (df_dash["NomeSubstituto"] != "-")])
+            vagas = len(df_dash[(df_dash["Status"] == "Aula Vaga") | (df_dash["AulaVaga"] == True)])
+            aguard = len(df_dash[df_dash["Status"] == "Aguardando Homologação"])
+            repostas = len(df_dash[df_dash["Status"].isin(["Reposta", "Aprovada"])])
             taxa = (subst / total * 100) if total > 0 else 0.0
 
             c1, c2, c3, c4, c5 = st.columns(5)
@@ -39,37 +71,60 @@ def render_coordenador_view(supabase: Client, user_profile: dict):
             c2.metric("Substituições", subst, f"{taxa:.1f}%")
             c3.metric("Aulas Vagas", vagas, delta_color="inverse")
             c4.metric("Aguardando Homologação", aguard)
-            c5.metric("Aulas Repostas", repostas)
+            c5.metric("Homologadas / Repostas", repostas)
 
             st.markdown("---")
-            g1, g2 = st.columns(2)
-            cores = {
-                "Pendente": "#CA8A04",
-                "Substituída": "#2563EB",
-                "Aula Vaga": "#DC2626",
-                "Aguardando Homologação": "#D97706",
-                "Aprovada": "#16A34A",
-                "Reposta": "#16A34A"
-            }
-            with g1:
-                fig_p = px.pie(
-                    df_ausencias,
-                    names="Status",
-                    title="Distribuição das Ocorrências por Status",
-                    color="Status",
-                    color_discrete_map=cores,
-                    hole=0.35
-                )
-                st.plotly_chart(fig_p, use_container_width=True)
-            with g2:
-                fig_b = px.bar(
-                    df_ausencias,
-                    x="Professor",
-                    color="Status",
-                    title="Frequência de Ausências por Docente",
-                    color_discrete_map=cores
-                )
-                st.plotly_chart(fig_b, use_container_width=True)
+            if df_dash.empty:
+                st.warning("Nenhuma ocorrência encontrada para os filtros selecionados no Dashboard.")
+            else:
+                g1, g2 = st.columns(2)
+                cores = {
+                    "Pendente": "#CA8A04",
+                    "Substituída": "#2563EB",
+                    "Aula Vaga": "#DC2626",
+                    "Aguardando Homologação": "#D97706",
+                    "Aprovada": "#16A34A",
+                    "Reposta": "#16A34A"
+                }
+                with g1:
+                    fig_p = px.pie(
+                        df_dash,
+                        names="Status",
+                        title="Distribuição das Ocorrências por Status",
+                        color="Status",
+                        color_discrete_map=cores,
+                        hole=0.35
+                    )
+                    st.plotly_chart(fig_p, use_container_width=True)
+                with g2:
+                    fig_b = px.bar(
+                        df_dash,
+                        x="Professor",
+                        color="Status",
+                        title="Frequência de Ausências por Docente",
+                        color_discrete_map=cores
+                    )
+                    st.plotly_chart(fig_b, use_container_width=True)
+
+                g3, g4 = st.columns(2)
+                with g3:
+                    fig_t = px.bar(
+                        df_dash,
+                        x="Turma",
+                        color="Status",
+                        title="Ausências por Turma e Curso",
+                        color_discrete_map=cores
+                    )
+                    st.plotly_chart(fig_t, use_container_width=True)
+                with g4:
+                    fig_h = px.bar(
+                        df_dash,
+                        x="Horário",
+                        color="Status",
+                        title="Frequência por Horário / Bloco de Aula",
+                        color_discrete_map=cores
+                    )
+                    st.plotly_chart(fig_h, use_container_width=True)
 
     # --------------------------------------------------------------------------
     # TAB 2: HOMOLOGAÇÃO DE REPOSIÇÕES

@@ -1,5 +1,6 @@
 import os
 import re
+import datetime
 import unicodedata
 import mimetypes
 import streamlit as st
@@ -60,32 +61,76 @@ def get_turmas(supabase: Client) -> pd.DataFrame:
 
 
 # ==============================================================================
+# CÁLCULO DE PRAZO DE ATESTADO (RN02 - 48 HORAS ÚTEIS)
+# ==============================================================================
+def calcular_prazo_atestado(data_ausencia_str: str, tem_atestado: bool, status: str) -> tuple[bool, int, str]:
+    """
+    Calcula os dias úteis decorridos desde a data da ausência e avalia a RN02
+    (prazo de 48 horas úteis / 2 dias úteis para envio de atestado médico).
+    Retorna: (em_atraso: bool, dias_uteis: int, rotulo_status: str)
+    """
+    if status in ["Reposta", "Aprovada"]:
+        return False, 0, "✅ Regular (Homologado)"
+    if tem_atestado or status == "Aguardando Homologação":
+        return False, 0, "⏳ Atestado Enviado"
+
+    try:
+        dt_aus = datetime.date.fromisoformat(str(data_ausencia_str)[:10])
+    except Exception:
+        return False, 0, "🕒 Pendente"
+
+    hoje = datetime.date.today()
+    if dt_aus >= hoje:
+        return False, 0, "🕒 No Prazo (<48h)"
+
+    # Conta dias úteis (segunda=0 a sexta=4) entre dt_aus (exclusivo) e hoje (inclusivo)
+    dias_uteis = 0
+    cursor = dt_aus + datetime.timedelta(days=1)
+    while cursor <= hoje:
+        if cursor.weekday() < 5:
+            dias_uteis += 1
+        cursor += datetime.timedelta(days=1)
+
+    if dias_uteis > 2:
+        return True, dias_uteis, f"⚠️ Atrasado ({dias_uteis}d úteis > 48h)"
+    return False, dias_uteis, f"🕒 No Prazo ({dias_uteis * 24}h/48h úteis)"
+
+
+# ==============================================================================
 # CONSULTAS DE OPERAÇÃO E OCORRÊNCIAS
 # ==============================================================================
 def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
     """Retorna todas as ausências registradas com joins relacionais completos (professores, disciplinas, turmas, substituições e reposições)."""
     try:
-        query = """
-            id, data_ausencia, horario, motivo, status, registrado_por, professor_id, disciplina_id, turma_id,
-            professores!ausencias_professor_id_fkey(id, nome, email),
-            disciplinas!ausencias_disciplina_id_fkey(codigo, nome),
-            turmas!ausencias_turma_id_fkey(codigo, curso),
-            substituicoes(id, aula_vaga, observacoes, professor_substituto_id, professores(nome)),
-            reposicoes_atestados(id, atestado_url, data_reposicao, horario_reposicao, comprovada)
-        """
+        query = (
+            "id, data_ausencia, horario, motivo, status, registrado_por, professor_id, disciplina_id, turma_id, "
+            "professores!ausencias_professor_id_fkey(id, nome, email), "
+            "disciplinas!ausencias_disciplina_id_fkey(codigo, nome), "
+            "turmas!ausencias_turma_id_fkey(codigo, curso), "
+            "substituicoes(id, aula_vaga, observacoes, professor_substituto_id, professores(nome)), "
+            "reposicoes_atestados(id, atestado_url, data_reposicao, horario_reposicao, comprovada)"
+        )
         res = supabase.table("ausencias").select(query).order("data_ausencia", desc=True).execute()
         data = []
         for item in res.data or []:
             prof = item.get("professores") or {}
             disc = item.get("disciplinas") or {}
             turma = item.get("turmas") or {}
+            status_item = item.get("status", "Pendente")
 
             # Tratativa / Substituição
-            sub_list = item.get("substituicoes") or []
-            sub = sub_list[0] if sub_list else {}
+            sub_raw = item.get("substituicoes")
+            if isinstance(sub_raw, dict):
+                sub_list = [sub_raw]
+            elif isinstance(sub_raw, list):
+                sub_list = sub_raw
+            else:
+                sub_list = []
+
+            sub = sub_list[-1] if sub_list else {}
             sub_prof = sub.get("professores") or {}
-            sub_nome = sub_prof.get("nome") if sub_prof else None
-            is_aula_vaga = bool(sub.get("aula_vaga"))
+            sub_nome = sub_prof.get("nome") if isinstance(sub_prof, dict) else None
+            is_aula_vaga = bool(sub.get("aula_vaga")) or (status_item == "Aula Vaga")
             obs_tratativa = sub.get("observacoes") or ""
 
             if is_aula_vaga:
@@ -96,8 +141,23 @@ def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
                 tratativa = "Pendente de tratativa"
 
             # Reposição & Atestado
-            rep_list = item.get("reposicoes_atestados") or []
-            rep = rep_list[0] if rep_list else {}
+            rep_raw = item.get("reposicoes_atestados")
+            if isinstance(rep_raw, dict):
+                rep_list = [rep_raw]
+            elif isinstance(rep_raw, list):
+                rep_list = rep_raw
+            else:
+                rep_list = []
+
+            # Prioriza o registro que possua atestado_url preenchido, ou o mais recente
+            rep = {}
+            for r_cand in reversed(rep_list):
+                if r_cand.get("atestado_url"):
+                    rep = r_cand
+                    break
+            if not rep and rep_list:
+                rep = rep_list[-1]
+
             data_rep = rep.get("data_reposicao")
             hora_rep = rep.get("horario_reposicao")
             atestado_url = rep.get("atestado_url")
@@ -109,9 +169,16 @@ def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
             else:
                 info_rep = "Não agendada"
 
+            data_str = str(item["data_ausencia"])
+            em_atraso, dias_uteis_atraso, rotulo_prazo = calcular_prazo_atestado(
+                data_ausencia_str=data_str,
+                tem_atestado=tem_atestado,
+                status=status_item
+            )
+
             data.append({
                 "ID": item["id"],
-                "Data": str(item["data_ausencia"]),
+                "Data": data_str,
                 "Horário": item["horario"],
                 "ProfessorID": item.get("professor_id"),
                 "Professor": prof.get("nome", "Docente não informado"),
@@ -122,9 +189,10 @@ def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
                 "CodigoTurma": turma.get("codigo", ""),
                 "Curso": turma.get("curso", ""),
                 "Motivo": item.get("motivo") or "Não informado",
-                "Status": item.get("status", "Pendente"),
+                "Status": status_item,
                 "RegistradoPor": item.get("registrado_por", "Secretaria"),
                 "Tratativa": tratativa,
+                "NomeSubstituto": sub_nome if sub_nome else "-",
                 "Substituto": sub_nome if sub_nome else ("Aula Vaga" if is_aula_vaga else "-"),
                 "SubstitutoID": sub.get("professor_substituto_id"),
                 "AulaVaga": is_aula_vaga,
@@ -133,7 +201,10 @@ def get_ausencias_completas(supabase: Client) -> pd.DataFrame:
                 "InfoReposicao": info_rep,
                 "Atestado": "Sim (Anexado)" if tem_atestado else "Não",
                 "AtestadoURL": atestado_url,
-                "RepComprovada": "Sim (Homologada)" if rep_comprovada else "Não"
+                "RepComprovada": "Sim (Homologada)" if rep_comprovada else "Não",
+                "PrazoAtestado": rotulo_prazo,
+                "AtrasoAtestado": em_atraso,
+                "DiasUteisSemAtestado": dias_uteis_atraso
             })
         return pd.DataFrame(data)
     except Exception as e:
@@ -150,11 +221,114 @@ def get_ausencias_do_professor(supabase: Client, professor_id: str) -> pd.DataFr
 
 
 def get_substituicoes_do_professor(supabase: Client, professor_id: str) -> pd.DataFrame:
-    """Retorna as aulas onde este docente foi convocado como substituto."""
+    """Retorna as aulas onde este docente foi convocado ou se candidatou como substituto."""
     df_todas = get_ausencias_completas(supabase)
     if df_todas.empty or not professor_id:
         return pd.DataFrame()
     return df_todas[df_todas["SubstitutoID"] == professor_id]
+
+
+def get_substituicoes_disponiveis_para_professor(supabase: Client, professor_id: str) -> pd.DataFrame:
+    """
+    Retorna todas as ausências de outros professores que estão pendentes de substituto
+    (sem professor substituto alocado, não classificadas como Aula Vaga e não concluídas como Reposta).
+    """
+    df_todas = get_ausencias_completas(supabase)
+    if df_todas.empty or not professor_id:
+        return pd.DataFrame()
+    filtro = (
+        (df_todas["ProfessorID"] != professor_id) &
+        (df_todas["SubstitutoID"].isna() | (df_todas["SubstitutoID"] == "")) &
+        (~df_todas["AulaVaga"]) &
+        (df_todas["Status"] != "Reposta")
+    )
+    return df_todas[filtro]
+
+
+def candidatar_substituicao_docente(
+    supabase: Client,
+    ausencia_id: str,
+    professor_substituto_id: str,
+    observacoes: str = ""
+) -> tuple[bool, str]:
+    """
+    Permite a um professor se candidatar e assumir a substituição de uma falta pendente
+    diretamente pelo Portal do Docente, validando conflitos de agenda (RN01).
+    """
+    try:
+        res_aus = (
+            supabase.table("ausencias")
+            .select("id, professor_id, data_ausencia, horario, status, substituicoes(id, professor_substituto_id, aula_vaga)")
+            .eq("id", ausencia_id)
+            .execute()
+        )
+        if not res_aus.data:
+            return False, "Ausência não encontrada no banco de dados."
+
+        aus = res_aus.data[0]
+        if aus.get("professor_id") == professor_substituto_id:
+            return False, "Você não pode se candidatar para substituir sua própria ausência (RN01)."
+
+        # Verifica se já há substituto ou aula vaga definida
+        subs_existentes = aus.get("substituicoes") or []
+        if isinstance(subs_existentes, dict):
+            subs_existentes = [subs_existentes]
+        for s_item in subs_existentes:
+            if s_item.get("professor_substituto_id"):
+                return False, "Esta aula já foi assumida por outro professor substituto."
+            if s_item.get("aula_vaga"):
+                return False, "Esta ocorrência já foi classificada como Aula Vaga pela Secretaria."
+
+        # Valida conflito de agenda do docente substituto no mesmo dia e bloco de horário (RN01)
+        tem_conflito, msg_conflito = verificar_conflito_substituto(
+            supabase=supabase,
+            professor_substituto_id=professor_substituto_id,
+            data_ausencia=str(aus["data_ausencia"]),
+            horario=aus["horario"],
+            ausencia_id_atual=ausencia_id
+        )
+        if tem_conflito:
+            return False, msg_conflito
+
+        obs_texto = f"Candidatura via Portal do Docente. {observacoes.strip()}".strip()
+        if subs_existentes:
+            sub_id_row = subs_existentes[-1]["id"]
+            supabase.table("substituicoes").update({
+                "professor_substituto_id": professor_substituto_id,
+                "aula_vaga": False,
+                "observacoes": obs_texto
+            }).eq("id", sub_id_row).execute()
+        else:
+            supabase.table("substituicoes").insert({
+                "ausencia_id": ausencia_id,
+                "professor_substituto_id": professor_substituto_id,
+                "aula_vaga": False,
+                "observacoes": obs_texto
+            }).execute()
+
+        # Se o status da ausência estava como 'Pendente', atualiza para 'Substituída'
+        if aus.get("status") == "Pendente":
+            supabase.table("ausencias").update({"status": "Substituída"}).eq("id", ausencia_id).execute()
+
+        return True, "Você assumiu a substituição desta aula com sucesso! Seu nome já consta como substituto para a Secretaria e Coordenação."
+    except Exception as e:
+        return False, f"Erro ao registrar substituição: {e}"
+
+
+def cancelar_substituicao_docente(
+    supabase: Client,
+    ausencia_id: str,
+    professor_substituto_id: str
+) -> tuple[bool, str]:
+    """Permite ao professor substituto liberar uma substituição que havia assumido, devolvendo-a para a fila de pendentes."""
+    try:
+        supabase.table("substituicoes").delete().eq("ausencia_id", ausencia_id).eq("professor_substituto_id", professor_substituto_id).execute()
+        res_aus = supabase.table("ausencias").select("status").eq("id", ausencia_id).execute()
+        if res_aus.data and res_aus.data[0].get("status") == "Substituída":
+            supabase.table("ausencias").update({"status": "Pendente"}).eq("id", ausencia_id).execute()
+        return True, "Substituição liberada com sucesso. A aula voltou a ficar disponível para substituição."
+    except Exception as e:
+        return False, f"Erro ao liberar substituição: {e}"
 
 
 def sanitizar_nome_arquivo(nome_arquivo: str) -> str:
@@ -292,6 +466,84 @@ def recusar_atestado_secretaria(supabase: Client, ausencia_id: str, motivo_recus
         return False, f"Erro ao recusar atestado: {e}"
 
 
+# ==============================================================================
+# VALIDAÇÕES DE CONFLITO DE AGENDA (RF01 & RN01)
+# ==============================================================================
+def verificar_conflito_ausencia(
+    supabase: Client,
+    professor_id: str,
+    data_ausencia: str,
+    horario: str
+) -> tuple[bool, str]:
+    """
+    Verifica se o docente já possui uma ausência registrada na mesma data e bloco de horário (RF01).
+    Retorna: (possui_conflito: bool, mensagem: str)
+    """
+    try:
+        res = (
+            supabase.table("ausencias")
+            .select("id, status, turmas!ausencias_turma_id_fkey(codigo)")
+            .eq("professor_id", professor_id)
+            .eq("data_ausencia", str(data_ausencia))
+            .eq("horario", horario)
+            .execute()
+        )
+        if res.data and len(res.data) > 0:
+            item = res.data[0]
+            turma_cod = (item.get("turmas") or {}).get("codigo", "Turma cadastrada")
+            return True, f"Conflito de horário (RF01): Este docente já possui uma ausência registrada em {data_ausencia} no bloco '{horario}' (Turma: {turma_cod}, Status: {item.get('status')})."
+        return False, ""
+    except Exception:
+        return False, ""
+
+
+def verificar_conflito_substituto(
+    supabase: Client,
+    professor_substituto_id: str,
+    data_ausencia: str,
+    horario: str,
+    ausencia_id_atual: str = None
+) -> tuple[bool, str]:
+    """
+    Verifica se o professor substituto selecionado possui conflito de agenda no mesmo dia e bloco de horário (RN01):
+    1. Se o substituto está ausente nesse mesmo dia e bloco de horário;
+    2. Se o substituto já foi escalado para substituir outra turma nesse mesmo dia e bloco de horário.
+    Retorna: (possui_conflito: bool, mensagem: str)
+    """
+    try:
+        # 1. Verifica se o candidato a substituto possui falta registrada nessa data e horário
+        res_falta = (
+            supabase.table("ausencias")
+            .select("id, turmas!ausencias_turma_id_fkey(codigo)")
+            .eq("professor_id", professor_substituto_id)
+            .eq("data_ausencia", str(data_ausencia))
+            .eq("horario", horario)
+            .execute()
+        )
+        if res_falta.data and len(res_falta.data) > 0:
+            turma_cod = (res_falta.data[0].get("turmas") or {}).get("codigo", "")
+            return True, f"Conflito de Horário (RN01): O docente selecionado possui ausência registrada para si mesmo em {data_ausencia} no bloco '{horario}' ({turma_cod})."
+
+        # 2. Verifica se já está alocado como substituto em outra ausência na mesma data e horário
+        res_aus_mesmo_slot = (
+            supabase.table("ausencias")
+            .select("id, turmas!ausencias_turma_id_fkey(codigo), substituicoes(professor_substituto_id)")
+            .eq("data_ausencia", str(data_ausencia))
+            .eq("horario", horario)
+            .execute()
+        )
+        for item in res_aus_mesmo_slot.data or []:
+            if ausencia_id_atual and item.get("id") == ausencia_id_atual:
+                continue
+            for sub in item.get("substituicoes") or []:
+                if sub.get("professor_substituto_id") == professor_substituto_id:
+                    turma_cod = (item.get("turmas") or {}).get("codigo", "outra turma")
+                    return True, f"Conflito de Horário (RN01): O docente selecionado já está alocado como substituto na turma '{turma_cod}' em {data_ausencia} no bloco '{horario}'."
+        return False, ""
+    except Exception:
+        return False, ""
+
+
 def registrar_ausencia_secretaria(
     supabase: Client,
     professor_id: str,
@@ -315,6 +567,16 @@ def registrar_ausencia_secretaria(
         Portal do Docente para que ele mesmo anexe o atestado e a proposta de reposição.
     """
     try:
+        # Valida duplicidade de ausência no mesmo dia e bloco de horário (RF01)
+        tem_conflito, msg_conflito = verificar_conflito_ausencia(
+            supabase=supabase,
+            professor_id=professor_id,
+            data_ausencia=str(data_ausencia),
+            horario=horario
+        )
+        if tem_conflito:
+            return False, msg_conflito
+
         status_inicial = "Aguardando Homologação" if (anexar_atestado_agora and doc_file) else "Pendente"
 
         # 1. Insere a ausência registrada pela Secretaria
@@ -366,6 +628,16 @@ def registrar_ausencia_docente(
 ) -> tuple[bool, str]:
     """Permite ao próprio professor comunicar sua ausência com envio de atestado opcional."""
     try:
+        # Valida duplicidade de ausência no mesmo dia e bloco de horário (RF01)
+        tem_conflito, msg_conflito = verificar_conflito_ausencia(
+            supabase=supabase,
+            professor_id=professor_id,
+            data_ausencia=str(data_ausencia),
+            horario=horario
+        )
+        if tem_conflito:
+            return False, msg_conflito
+
         status_inicial = "Aguardando Homologação" if doc_file or data_reposicao else "Pendente"
         
         # 1. Insere ausência

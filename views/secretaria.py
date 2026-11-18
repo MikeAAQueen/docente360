@@ -11,6 +11,7 @@ from services.supabase_service import (
     anexar_atestado_reposicao,
     aprovar_atestado_secretaria,
     recusar_atestado_secretaria,
+    verificar_conflito_substituto,
     get_reposicoes
 )
 from components.cadastros import render_cadastros_base
@@ -159,22 +160,21 @@ def render_secretaria_view(supabase: Client, user_profile: dict):
     # --------------------------------------------------------------------------
     with abas_sec[1]:
         st.subheader("Atribuição de Substituto ou Registro de Aula Vaga")
+        st.caption("As faltas pendentes abaixo também ficam visíveis no **Portal do Docente**, onde outros professores disponíveis podem se candidatar para assumir a substituição.")
         pendentes = df_ausencias[
-            (df_ausencias["Tratativa"] == "Pendente de tratativa") | 
-            (df_ausencias["Status"] == "Pendente")
+            (df_ausencias["Tratativa"] == "Pendente de tratativa") &
+            (df_ausencias["Status"] != "Reposta")
         ] if not df_ausencias.empty else pd.DataFrame()
-        if not pendentes.empty:
-            pendentes = pendentes[pendentes["Status"] != "Reposta"]
 
         if pendentes.empty:
-            st.success("🎉 Nenhuma ausência pendente de tratativa no momento.")
+            st.success("🎉 Nenhuma ausência pendente de substituto ou tratativa no momento.")
         else:
             opcoes_pend = {
-                r["ID"]: f"{r['Data']} | {r['Professor']} | {r['Turma']} ({r['Horário']})"
+                r["ID"]: f"{r['Data']} | {r['Professor']} | {r['Disciplina']} — {r['Turma']} ({r['Horário']})"
                 for _, r in pendentes.iterrows()
             }
             esc_id = st.selectbox(
-                "Ausência Pendente:",
+                "Ausência Pendente de Substituto:",
                 list(opcoes_pend.keys()),
                 format_func=lambda x: opcoes_pend[x]
             )
@@ -186,15 +186,26 @@ def render_secretaria_view(supabase: Client, user_profile: dict):
                 sub_nome = st.selectbox("Selecione o Professor Substituto:", disp["nome"].tolist())
                 if st.button("Confirmar Substituição", type="primary"):
                     sub_id = disp[disp["nome"] == sub_nome]["id"].values[0]
-                    supabase.table("substituicoes").insert({
-                        "ausencia_id": esc_id,
-                        "professor_substituto_id": sub_id,
-                        "aula_vaga": False
-                    }).execute()
-                    if detalhe["Status"] == "Pendente":
-                        supabase.table("ausencias").update({"status": "Substituída"}).eq("id", esc_id).execute()
-                    st.success("Substituição alocada com sucesso!")
-                    st.rerun()
+                    tem_conflito, msg_conflito = verificar_conflito_substituto(
+                        supabase=supabase,
+                        professor_substituto_id=sub_id,
+                        data_ausencia=detalhe["Data"],
+                        horario=detalhe["Horário"],
+                        ausencia_id_atual=esc_id
+                    )
+                    if tem_conflito:
+                        st.error(f"❌ {msg_conflito}")
+                    else:
+                        supabase.table("substituicoes").insert({
+                            "ausencia_id": esc_id,
+                            "professor_substituto_id": sub_id,
+                            "aula_vaga": False,
+                            "observacoes": "Alocado pela Secretaria"
+                        }).execute()
+                        if detalhe["Status"] == "Pendente":
+                            supabase.table("ausencias").update({"status": "Substituída"}).eq("id", esc_id).execute()
+                        st.success("Substituição alocada com sucesso!")
+                        st.rerun()
             else:
                 obs_vaga = st.text_input("Justificativa para a Turma:")
                 if st.button("Confirmar Aula Vaga"):
@@ -208,6 +219,23 @@ def render_secretaria_view(supabase: Client, user_profile: dict):
                         supabase.table("ausencias").update({"status": "Aula Vaga"}).eq("id", esc_id).execute()
                     st.warning("Classificada como Aula Vaga.")
                     st.rerun()
+
+        # Exibe também as substituições já assumidas (pelos professores no Portal ou pela Secretaria)
+        ja_tratadas = df_ausencias[df_ausencias["Tratativa"] != "Pendente de tratativa"] if not df_ausencias.empty else pd.DataFrame()
+        if not ja_tratadas.empty:
+            st.markdown("---")
+            st.markdown("##### 🤝 Substituições e Tratativas Já Definidas")
+            df_tratadas_exib = pd.DataFrame({
+                "Data": ja_tratadas["Data"],
+                "Horário": ja_tratadas["Horário"],
+                "Professor Ausente": ja_tratadas["Professor"],
+                "Disciplina": ja_tratadas["Disciplina"],
+                "Turma": ja_tratadas["Turma"],
+                "NomeSubstituto": ja_tratadas["NomeSubstituto"],
+                "AulaVaga": ja_tratadas["AulaVaga"],
+                "Status": ja_tratadas["Status"]
+            })
+            st.dataframe(df_tratadas_exib, use_container_width=True, hide_index=True)
 
     # --------------------------------------------------------------------------
     # TAB 3: HOMOLOGAÇÃO & APROVAÇÃO DE ATESTADOS PELA SECRETARIA
@@ -236,8 +264,8 @@ def render_secretaria_view(supabase: Client, user_profile: dict):
                         if atest_url:
                             st.markdown(f"📄 **Comprovante Anexado:** [🔗 Abrir / Baixar Atestado Médico]({atest_url})")
                             with st.expander("👁️ Pré-visualizar Documento na Tela", expanded=False):
-                                if atest_url.lower().endswith((".png", ".jpg", ".jpeg")):
-                                    st.image(atest_url, use_column_width=True)
+                                if str(atest_url).lower().split("?")[0].endswith((".png", ".jpg", ".jpeg")):
+                                    st.image(atest_url, use_container_width=True)
                                 else:
                                     st.markdown(
                                         f'<iframe src="{atest_url}" width="100%" height="450px" style="border: 1px solid #cbd5e1; border-radius: 8px;"></iframe>',
@@ -346,4 +374,61 @@ def render_secretaria_view(supabase: Client, user_profile: dict):
     # --------------------------------------------------------------------------
     with abas_sec[5]:
         st.subheader("Histórico Completo de Ausências")
-        st.dataframe(df_ausencias, use_container_width=True)
+        if df_ausencias.empty:
+            st.info("Nenhuma ausência registrada no histórico até o momento.")
+        else:
+            st.caption("💡 Clique em **'📄 Ver Atestado'** na coluna **Atestado** para abrir o documento em nova guia, ou selecione uma linha da tabela para pré-visualizar o atestado na tela.")
+
+            df_historico = pd.DataFrame({
+                "Data": df_ausencias["Data"],
+                "Horário": df_ausencias["Horário"],
+                "Professor": df_ausencias["Professor"],
+                "Motivo": df_ausencias["Motivo"],
+                "Status": df_ausencias["Status"],
+                "Atestado": df_ausencias["AtestadoURL"],
+                "NomeSubstituto": df_ausencias["NomeSubstituto"],
+                "AulaVaga": df_ausencias["AulaVaga"]
+            })
+
+            evento_sel = st.dataframe(
+                df_historico,
+                use_container_width=True,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+                column_config={
+                    "Data": st.column_config.TextColumn("Data"),
+                    "Horário": st.column_config.TextColumn("Horário"),
+                    "Professor": st.column_config.TextColumn("Professor"),
+                    "Motivo": st.column_config.TextColumn("Motivo"),
+                    "Status": st.column_config.TextColumn("Status"),
+                    "Atestado": st.column_config.LinkColumn(
+                        "Atestado",
+                        display_text="📄 Ver Atestado",
+                        help="Clique para abrir o atestado enviado"
+                    ),
+                    "NomeSubstituto": st.column_config.TextColumn("NomeSubstituto"),
+                    "AulaVaga": st.column_config.CheckboxColumn("AulaVaga")
+                }
+            )
+
+            # Se a secretaria selecionou uma linha na tabela para pré-visualizar na plataforma
+            linhas_selecionadas = evento_sel.selection.rows if (evento_sel and hasattr(evento_sel, "selection")) else []
+            if linhas_selecionadas:
+                idx_sel = linhas_selecionadas[0]
+                reg_sel = df_ausencias.iloc[idx_sel]
+                url_sel = reg_sel.get("AtestadoURL")
+                if url_sel:
+                    with st.container():
+                        st.markdown("---")
+                        st.markdown(f"##### 👁️ Visualização do Atestado — {reg_sel['Professor']} ({reg_sel['Data']} | {reg_sel['Horário']})")
+                        st.markdown(f"🔗 **[Abrir / Baixar Atestado em Nova Guia]({url_sel})**")
+                        if str(url_sel).lower().split("?")[0].endswith((".png", ".jpg", ".jpeg")):
+                            st.image(url_sel, use_container_width=True)
+                        else:
+                            st.markdown(
+                                f'<iframe src="{url_sel}" width="100%" height="500px" style="border: 1px solid #cbd5e1; border-radius: 8px;"></iframe>',
+                                unsafe_allow_html=True
+                            )
+                else:
+                    st.info(f"ℹ️ A ocorrência selecionada ({reg_sel['Professor']} em {reg_sel['Data']}) ainda não possui atestado anexado na plataforma.")

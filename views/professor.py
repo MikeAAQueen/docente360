@@ -5,6 +5,10 @@ from supabase import Client
 from services.supabase_service import (
     get_ausencias_do_professor,
     get_substituicoes_do_professor,
+    get_substituicoes_disponiveis_para_professor,
+    candidatar_substituicao_docente,
+    cancelar_substituicao_docente,
+    verificar_conflito_substituto,
     get_disciplinas,
     get_turmas,
     get_professores,
@@ -36,6 +40,19 @@ def render_professor_view(supabase: Client, user_profile: dict):
 
     # Caso seja o Administrador simulando ou um professor sem vínculo prévio na tabela professores
     df_todos_prof = get_professores(supabase)
+    if user_profile.get("perfil") == "Administrador" and not df_todos_prof.empty:
+        opcoes_sim = {r["id"]: f"👨‍🏫 {r['nome']} ({r['email']})" for _, r in df_todos_prof.iterrows()}
+        idx_padrao = list(opcoes_sim.keys()).index(professor_id) if professor_id in opcoes_sim else 0
+        prof_sim_id = st.selectbox(
+            "🔄 Alternar docente visualizado no Portal (Modo Administrador):",
+            options=list(opcoes_sim.keys()),
+            index=idx_padrao,
+            format_func=lambda x: opcoes_sim[x],
+            key="admin_sim_prof_select"
+        )
+        professor_id = prof_sim_id
+        user_profile["professor_id"] = prof_sim_id
+
     if not professor_id:
         st.warning("⚠️ **Vínculo Docente não localizado automaticamente.**")
         st.info("Para vincular sua conta à grade de docentes, selecione o seu nome de professor cadastrado abaixo:")
@@ -58,9 +75,10 @@ def render_professor_view(supabase: Client, user_profile: dict):
             st.error("Nenhum professor cadastrado no banco de dados. Solicite o cadastro à Secretaria.")
             return
 
-    # Busca ocorrências específicas deste professor
+    # Busca ocorrências específicas deste professor e oportunidades de substituição abertas
     df_minhas_ausencias = get_ausencias_do_professor(supabase, professor_id)
     df_minhas_subst = get_substituicoes_do_professor(supabase, professor_id)
+    df_subst_disponiveis = get_substituicoes_disponiveis_para_professor(supabase, professor_id)
     df_disc = get_disciplinas(supabase)
     df_turmas = get_turmas(supabase)
 
@@ -71,12 +89,19 @@ def render_professor_view(supabase: Client, user_profile: dict):
     sem_atestado = len(df_minhas_ausencias[df_minhas_ausencias["Atestado"] == "Não"]) if not df_minhas_ausencias.empty else 0
     aguardando_homolog = len(df_minhas_ausencias[df_minhas_ausencias["Status"] == "Aguardando Homologação"]) if not df_minhas_ausencias.empty else 0
     homologadas = len(df_minhas_ausencias[df_minhas_ausencias["Status"].isin(["Reposta", "Aprovada"])]) if not df_minhas_ausencias.empty else 0
+    qtd_subst_disp = len(df_subst_disponiveis) if not df_subst_disponiveis.empty else 0
+    qtd_minhas_subst = len(df_minhas_subst) if not df_minhas_subst.empty else 0
 
-    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
     col_m1.metric("Minhas Ausências", total_faltas)
     col_m2.metric("Pendentes de Atestado", sem_atestado, delta=None if sem_atestado == 0 else f"{sem_atestado} pendente(s)", delta_color="inverse")
     col_m3.metric("Aguardando Homologação", aguardando_homolog)
     col_m4.metric("Atestados Aprovados", homologadas)
+    col_m5.metric(
+        "Substituições Pendentes",
+        qtd_subst_disp,
+        delta=f"{qtd_minhas_subst} assumida(s) por você" if qtd_minhas_subst > 0 else ("Disponíveis para assumir" if qtd_subst_disp > 0 else None)
+    )
 
     # Identifica ausências que foram recusadas pela Secretaria e voltaram a ficar pendentes
     ausencias_recusadas = df_minhas_ausencias[
@@ -106,15 +131,21 @@ def render_professor_view(supabase: Client, user_profile: dict):
     if aguardando_homolog > 0:
         st.info(f"⏳ Você possui **{aguardando_homolog} atestado(s)** enviado(s) que estão **pendentes de homologação/aprovação pela Secretaria**.")
 
+    if qtd_subst_disp > 0:
+        st.info(
+            f"🙋‍♂️ **Oportunidade de Substituição:** Há **{qtd_subst_disp} aula(s) pendente(s) de professor substituto** lançada(s) no sistema. Acesse a aba **'🤝 Substituições ({qtd_subst_disp})'** para se candidatar e assumir a aula!"
+        )
+
     st.markdown("---")
 
     # ==========================================================================
     # NAVEGAÇÃO EM ABAS
     # ==========================================================================
+    label_aba_subst = f"🤝 Substituições ({qtd_subst_disp})" if qtd_subst_disp > 0 else "🤝 Substituições"
     aba_minhas, aba_comunicar, aba_subst = st.tabs([
         "📋 Minhas Ausências & Atestados",
         "📢 Comunicar Ausência (Auto-registro)",
-        "🤝 Minhas Substituições"
+        label_aba_subst
     ])
 
     # --------------------------------------------------------------------------
@@ -365,15 +396,96 @@ def render_professor_view(supabase: Client, user_profile: dict):
                         st.error(f"❌ {msg_cad}")
 
     # --------------------------------------------------------------------------
-    # TAB 3: MINHAS SUBSTITUIÇÕES
+    # TAB 3: SUBSTITUIÇÕES PENDENTES & MINHAS SUBSTITUIÇÕES
     # --------------------------------------------------------------------------
     with aba_subst:
-        st.subheader("Aulas em que Você foi Alocado como Substituto")
-        st.caption("Acompanhe as turmas onde a Secretaria Acadêmica escalou você para cobrir a ausência de outro professor.")
+        st.subheader("🙋‍♂️ Substituições Pendentes — Candidatar-se para Substituir")
+        st.caption("Veja abaixo as faltas lançadas que ainda não possuem professor substituto e candidate-se para assumir a aula.")
+
+        if df_subst_disponiveis.empty:
+            st.success("🎉 Nenhuma aula de outros docentes aguardando substituto no momento.")
+        else:
+            st.info(f"Há **{len(df_subst_disponiveis)} aula(s)** disponível(is) aguardando um professor substituto:")
+
+            for _, r_sub in df_subst_disponiveis.iterrows():
+                tem_conflito_sub, msg_conflito_sub = verificar_conflito_substituto(
+                    supabase=supabase,
+                    professor_substituto_id=professor_id,
+                    data_ausencia=r_sub["Data"],
+                    horario=r_sub["Horário"],
+                    ausencia_id_atual=r_sub["ID"]
+                )
+                badge_agenda = "🔴 Conflito na sua agenda" if tem_conflito_sub else "🟢 Horário livre na sua agenda"
+
+                with st.expander(
+                    f"📅 {r_sub['Data']} ({r_sub['Horário']}) — {r_sub['Disciplina']} | Turma: {r_sub['Turma']} — Prof. Ausente: {r_sub['Professor']} [{badge_agenda}]",
+                    expanded=True
+                ):
+                    c_s1, c_s2 = st.columns([2, 1])
+                    with c_s1:
+                        st.markdown(f"**👨‍🏫 Professor Titular Ausente:** {r_sub['Professor']}")
+                        st.markdown(f"**📖 Disciplina & Turma:** {r_sub['Disciplina']} — {r_sub['Turma']}")
+                        st.markdown(f"**🕒 Data e Horário da Aula:** {r_sub['Data']} — {r_sub['Horário']}")
+                        st.markdown(f"**📝 Motivo da Ausência:** {r_sub['Motivo']}")
+                    with c_s2:
+                        if tem_conflito_sub:
+                            st.error(f"⚠️ {msg_conflito_sub}")
+                        else:
+                            st.success("✅ Você está disponível neste dia e bloco de horário.")
+
+                        obs_cand = st.text_input(
+                            "Observação / Plano de Aula (opcional):",
+                            placeholder="Ex: Posso assumir e aplicar o conteúdo da matéria.",
+                            key=f"obs_cand_{r_sub['ID']}"
+                        )
+                        if st.button(
+                            "🙋‍♂️ Candidatar-me / Assumir como Substituto",
+                            key=f"btn_cand_{r_sub['ID']}",
+                            type="primary",
+                            use_container_width=True,
+                            disabled=tem_conflito_sub
+                        ):
+                            ok_sub, msg_sub = candidatar_substituicao_docente(
+                                supabase=supabase,
+                                ausencia_id=r_sub["ID"],
+                                professor_substituto_id=professor_id,
+                                observacoes=obs_cand
+                            )
+                            if ok_sub:
+                                st.success(f"✅ {msg_sub}")
+                                st.rerun()
+                            else:
+                                st.error(f"❌ {msg_sub}")
+
+        st.markdown("---")
+        st.subheader("📋 Minhas Substituições Confirmadas")
+        st.caption("Acompanhe as turmas onde você já está alocado como professor substituto (por candidatura própria ou escala da Secretaria).")
 
         if not df_minhas_subst.empty:
-            cols_subst = ["Data", "Horário", "Professor", "Disciplina", "Turma", "Status"]
-            df_exib_sub = df_minhas_subst[cols_subst].rename(columns={"Professor": "Professor Titular Ausente"})
+            cols_subst = ["Data", "Horário", "Professor", "Disciplina", "Turma", "Status", "Tratativa"]
+            df_exib_sub = df_minhas_subst[cols_subst].rename(columns={
+                "Professor": "Professor Titular Ausente",
+                "Tratativa": "Detalhes da Substituição"
+            })
             st.dataframe(df_exib_sub, use_container_width=True, hide_index=True)
+
+            with st.expander("↩️ Precisa liberar/desistir de uma substituição assumida?"):
+                opcoes_cancel = {
+                    r["ID"]: f"{r['Data']} ({r['Horário']}) — {r['Disciplina']} | Turma: {r['Turma']} (Titular: {r['Professor']})"
+                    for _, r in df_minhas_subst.iterrows()
+                }
+                id_cancel = st.selectbox(
+                    "Selecione a substituição que deseja liberar:",
+                    options=list(opcoes_cancel.keys()),
+                    format_func=lambda x: opcoes_cancel[x],
+                    key="sel_cancel_subst_prof"
+                )
+                if st.button("Confirmar Liberação da Substituição", type="secondary", key="btn_cancel_subst_prof"):
+                    ok_c, msg_c = cancelar_substituicao_docente(supabase, id_cancel, professor_id)
+                    if ok_c:
+                        st.warning(f"↩️ {msg_c}")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {msg_c}")
         else:
-            st.info("ℹ️ Você não possui nenhuma escala de substituição pendente ou confirmada no momento.")
+            st.info("ℹ️ Você ainda não possui nenhuma substituição confirmada em seu nome.")

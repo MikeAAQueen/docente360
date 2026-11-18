@@ -74,12 +74,18 @@ def render_login_view(supabase: Client):
                             
                             email_sugerido = prof_sel["email"]
                             cad_email = st.text_input("Confirmar E-mail Institucional *", value=email_sugerido)
-                            cad_senha = st.text_input("Crie sua Senha de Acesso (mínimo 6 dígitos) *", type="password")
+                            col_s1, col_s2 = st.columns(2)
+                            with col_s1:
+                                cad_senha = st.text_input("Crie sua Senha de Acesso (mínimo 6 dígitos) *", type="password")
+                            with col_s2:
+                                cad_confirma_senha = st.text_input("Confirme sua Senha *", type="password")
                             
                             btn_vincular = st.form_submit_button("Criar Conta e Vincular", type="primary", use_container_width=True)
                             if btn_vincular:
-                                if not cad_email or not cad_senha:
-                                    st.warning("Preencha o e-mail e a senha.")
+                                if not cad_email or not cad_senha or not cad_confirma_senha:
+                                    st.warning("Preencha o e-mail, a senha e a confirmação de senha.")
+                                elif cad_senha != cad_confirma_senha:
+                                    st.error("❌ As senhas digitadas não coincidem. Por favor, verifique e tente novamente.")
                                 else:
                                     handle_signup(
                                         supabase=supabase,
@@ -97,12 +103,18 @@ def render_login_view(supabase: Client):
                         novo_nome = st.text_input("Nome Completo *", placeholder="Ex: Dr. Carlos Eduardo de Andrade")
                         novo_email = st.text_input("E-mail Institucional *", placeholder="Ex: carlos.andrade@escola.edu.br")
                         novo_depto = st.text_input("Departamento / Área de Atuação *", placeholder="Ex: Matemática Aplicada / Exatas")
-                        novo_senha = st.text_input("Senha (mínimo 6 dígitos) *", type="password")
+                        col_ns1, col_ns2 = st.columns(2)
+                        with col_ns1:
+                            novo_senha = st.text_input("Senha (mínimo 6 dígitos) *", type="password")
+                        with col_ns2:
+                            novo_confirma_senha = st.text_input("Confirmar Senha *", type="password")
                         
                         btn_novo_prof = st.form_submit_button("Cadastrar Novo Professor", type="primary", use_container_width=True)
                         if btn_novo_prof:
-                            if not novo_nome or not novo_email or not novo_senha:
+                            if not novo_nome or not novo_email or not novo_senha or not novo_confirma_senha:
                                 st.warning("Preencha todos os campos obrigatórios (*).")
+                            elif novo_senha != novo_confirma_senha:
+                                st.error("❌ As senhas digitadas não coincidem. Por favor, verifique e tente novamente.")
                             else:
                                 handle_signup(
                                     supabase=supabase,
@@ -121,12 +133,18 @@ def render_login_view(supabase: Client):
                     cad_nome = st.text_input("Nome Completo *", placeholder="Ex: Ana Carolina Silva")
                     cad_email = st.text_input("E-mail Institucional *", placeholder="Ex: ana.silva@escola.edu.br")
                     cad_cargo = st.text_input("Cargo / Função", placeholder="Ex: Secretária Acadêmica")
-                    cad_senha = st.text_input("Senha (mínimo 6 dígitos) *", type="password")
+                    col_gs1, col_gs2 = st.columns(2)
+                    with col_gs1:
+                        cad_senha = st.text_input("Senha (mínimo 6 dígitos) *", type="password")
+                    with col_gs2:
+                        cad_confirma_senha = st.text_input("Confirmar Senha *", type="password")
                     
                     btn_cadastrar = st.form_submit_button("Cadastrar Usuário", use_container_width=True)
                     if btn_cadastrar:
-                        if not cad_nome or not cad_email or not cad_senha:
+                        if not cad_nome or not cad_email or not cad_senha or not cad_confirma_senha:
                             st.warning("Preencha todos os campos obrigatórios (*).")
+                        elif cad_senha != cad_confirma_senha:
+                            st.error("❌ As senhas digitadas não coincidem. Por favor, verifique e tente novamente.")
                         else:
                             handle_signup(
                                 supabase=supabase,
