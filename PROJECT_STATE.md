@@ -1,4 +1,5 @@
 # 📌 Project State — Docente360
+
 **Última atualização:** 18 de Novembro de 2026  
 **Status do Projeto:** Fase 2 Concluída (Plataforma Completa Multi-Perfil em Produção) — 100% dos Requisitos Funcionais e Regras de Negócio Atendidos
 
@@ -14,16 +15,16 @@ O projeto substitui controles manuais e planilhas descentralizadas por um fluxo 
 
 ## 2. Stack Tecnológica Implementada
 
-| Camada | Tecnologia / Biblioteca | Função no Projeto |
-| :--- | :--- | :--- |
-| **Frontend & UI** | [Streamlit](https://streamlit.io/) (`>=1.30.0`) | Interface interativa, formulários operacionais, estilização CSS customizada e controle de sessão. |
-| **Backend / BaaS** | [Supabase](https://supabase.com/) (`supabase>=2.0.0` / PostgreSQL 15+) | Banco de dados relacional com integridade referencial, triggers `PL/pgSQL` e segurança RLS. |
-| **Autenticação & RBAC** | Supabase Auth Oficial | Gerenciamento de credenciais seguras, sessões, metadados de perfis e vínculo automático com docentes. |
-| **Armazenamento de Arquivos** | Supabase Storage (`bucket: atestados`) | Bucket para upload seguro e pré-visualização de atestados médicos e comprovantes (PDF/PNG/JPG) com sanitização de nomes. |
-| **Visualização de Dados** | [Plotly](https://plotly.com/) (`>=5.18.0`) | Gráficos interativos (distribuição por status em rosca e frequência de faltas por docente). |
-| **Processamento de Dados** | [Pandas](https://pandas.pydata.org/) (`>=2.0.0`) | Manipulação tabular, joins relacionais consolidados e filtragem em memória. |
-| **Geração de Documentos** | [ReportLab](https://www.reportlab.com/) (`>=4.0.0`) | Geração sob demanda de relatórios oficiais em PDF formato Paisagem com `NumberedCanvas` e KPIs. |
-| **Configuração & Ambiente** | `python-dotenv` (`>=1.0.0`) | Carregamento seguro de variáveis de ambiente (`.env` / `st.secrets`). |
+| Camada                        | Tecnologia / Biblioteca                                                | Função no Projeto                                                                                                        |
+| :---------------------------- | :--------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------- |
+| **Frontend & UI**             | [Streamlit](https://streamlit.io/) (`>=1.30.0`)                        | Interface interativa, formulários operacionais, estilização CSS customizada e controle de sessão.                        |
+| **Backend / BaaS**            | [Supabase](https://supabase.com/) (`supabase>=2.0.0` / PostgreSQL 15+) | Banco de dados relacional com integridade referencial, triggers `PL/pgSQL` e segurança RLS.                              |
+| **Autenticação & RBAC**       | Supabase Auth Oficial                                                  | Gerenciamento de credenciais seguras, sessões, metadados de perfis e vínculo automático com docentes.                    |
+| **Armazenamento de Arquivos** | Supabase Storage (`bucket: atestados`)                                 | Bucket para upload seguro e pré-visualização de atestados médicos e comprovantes (PDF/PNG/JPG) com sanitização de nomes. |
+| **Visualização de Dados**     | [Plotly](https://plotly.com/) (`>=5.18.0`)                             | Gráficos interativos (distribuição por status em rosca e frequência de faltas por docente).                              |
+| **Processamento de Dados**    | [Pandas](https://pandas.pydata.org/) (`>=2.0.0`)                       | Manipulação tabular, joins relacionais consolidados e filtragem em memória.                                              |
+| **Geração de Documentos**     | [ReportLab](https://www.reportlab.com/) (`>=4.0.0`)                    | Geração sob demanda de relatórios oficiais em PDF formato Paisagem com `NumberedCanvas` e KPIs.                          |
+| **Configuração & Ambiente**   | `python-dotenv` (`>=1.0.0`)                                            | Carregamento seguro de variáveis de ambiente (`.env` / `st.secrets`).                                                    |
 
 ---
 
@@ -37,8 +38,9 @@ pie title Status de Implementação dos Requisitos
 ```
 
 ### Principais Marcos Concluídos:
+
 1. **Banco de Dados Modelado e Automatizado ([`banco_dados.sql`](file:///d:/Projects/docente360/banco_dados.sql)):**
-   - 7 tabelas relacionais (`professores`, `disciplinas`, `turmas`, `ausencias`, `substituicoes`, `reposicoes_atestados`, `usuarios`) com políticas RLS, trigger automática `handle_new_user()` para sincronização de contas e vínculo por e-mail com `professores`, configuração do bucket `atestados` e dados iniciais (*seeds*).
+   - 7 tabelas relacionais (`professores`, `disciplinas`, `turmas`, `ausencias`, `substituicoes`, `reposicoes_atestados`, `usuarios`) com políticas RLS, trigger automática `handle_new_user()` para sincronização de contas e vínculo por e-mail com `professores`, configuração do bucket `atestados` e dados iniciais (_seeds_).
 2. **Autenticação Oficial e Vínculo Inteligente de Docentes ([`services/auth_service.py`](file:///d:/Projects/docente360/services/auth_service.py), [`views/login.py`](file:///d:/Projects/docente360/views/login.py)):**
    - Login e cadastro para os 4 perfis institucionais. Para o perfil **Professor**, permite vincular a conta a um docente pré-cadastrado pela Secretaria ou criar novo registro simultaneamente.
 3. **Módulo Operacional da Secretaria 100% Funcional ([`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py)):**
@@ -63,56 +65,56 @@ Abaixo está o detalhamento de cada requisito especificado em [`levantamento_req
 
 ### 4.1. Perfis de Usuário e Autenticação (RBAC)
 
-| Perfil | Requisito Planejado | Situação Atual | Onde está no Código |
-| :--- | :--- | :---: | :--- |
-| **Autenticação Geral** | Login e registro com Supabase Auth oficial, senhas criptografadas e persistência de sessão. | ✅ **Concluído** | [`services/auth_service.py`](file:///d:/Projects/docente360/services/auth_service.py) e [`views/login.py`](file:///d:/Projects/docente360/views/login.py) |
-| **Tabela de Usuários** | Sincronização automática entre `auth.users` e `public.usuarios` com RLS e vínculo `professor_id`. | ✅ **Concluído** | [`banco_dados.sql`](file:///d:/Projects/docente360/banco_dados.sql#L67-L158) |
-| **Secretaria** | Operações diárias de ausências (fluxo duplo), substituições, homologação de atestados e cadastros base. | ✅ **Concluído** | [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py) |
-| **Coordenador Acadêmico** | Dashboards analíticos, homologações pedagógicas de reposições e central de relatórios PDF/CSV. | ✅ **Concluído** | [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py) |
-| **Professor** | Portal do Docente para envio/reenvio de atestados, reposições, auto-registro de faltas e escala de substituições. | ✅ **Concluído** | [`views/professor.py`](file:///d:/Projects/docente360/views/professor.py) e [`views/login.py`](file:///d:/Projects/docente360/views/login.py) |
-| **Administrador** | Gestão de equipe, cadastros base, métricas globais e Navegação Master entre todos os setores. | ✅ **Concluído** | [`views/admin.py`](file:///d:/Projects/docente360/views/admin.py), [`app.py`](file:///d:/Projects/docente360/app.py#L47-L59) e [`components/styles.py`](file:///d:/Projects/docente360/components/styles.py#L129-L143) |
+| Perfil                    | Requisito Planejado                                                                                                                 |  Situação Atual  | Onde está no Código                                                                                                                                                                                                    |
+| :------------------------ | :---------------------------------------------------------------------------------------------------------------------------------- | :--------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Autenticação Geral**    | Login e registro com Supabase Auth oficial, confirmação dupla de senha no cadastro, senhas criptografadas e persistência de sessão. | ✅ **Concluído** | [`services/auth_service.py`](file:///d:/Projects/docente360/services/auth_service.py) e [`views/login.py`](file:///d:/Projects/docente360/views/login.py)                                                              |
+| **Tabela de Usuários**    | Sincronização automática entre `auth.users` e `public.usuarios` com RLS e vínculo `professor_id`.                                   | ✅ **Concluído** | [`banco_dados.sql`](file:///d:/Projects/docente360/banco_dados.sql#L67-L158)                                                                                                                                           |
+| **Secretaria**            | Operações diárias de ausências (fluxo duplo), substituições, homologação de atestados e cadastros base.                             | ✅ **Concluído** | [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py)                                                                                                                                            |
+| **Coordenador Acadêmico** | Dashboards analíticos, homologações pedagógicas de reposições e central de relatórios PDF/CSV.                                      | ✅ **Concluído** | [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py)                                                                                                                                          |
+| **Professor**             | Portal do Docente para envio/reenvio de atestados, reposições, auto-registro de faltas e escala de substituições.                   | ✅ **Concluído** | [`views/professor.py`](file:///d:/Projects/docente360/views/professor.py) e [`views/login.py`](file:///d:/Projects/docente360/views/login.py)                                                                          |
+| **Administrador**         | Gestão de equipe, cadastros base, métricas globais e Navegação Master entre todos os setores.                                       | ✅ **Concluído** | [`views/admin.py`](file:///d:/Projects/docente360/views/admin.py), [`app.py`](file:///d:/Projects/docente360/app.py#L47-L59) e [`components/styles.py`](file:///d:/Projects/docente360/components/styles.py#L129-L143) |
 
 ---
 
 ### 4.2. Requisitos Funcionais (RF)
 
-| Código | Requisito | Status | O que já conseguimos fazer / Observações |
-| :---: | :--- | :---: | :--- |
-| **RF01** | **Lançamento de Ausências (Fluxo Duplo & Auto-registro)** | ✅ **Concluído** | Em [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py), a Secretaria escolhe entre anexar o atestado no ato ou gerar evento pendente para o professor. Em [`views/professor.py`](file:///d:/Projects/docente360/views/professor.py), o docente também pode comunicar ausências (`registrado_por = 'Docente'`). |
+|  Código  | Requisito                                                      |      Status      | O que já conseguimos fazer / Observações                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| :------: | :------------------------------------------------------------- | :--------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RF01** | **Lançamento de Ausências (Fluxo Duplo & Auto-registro)**      | ✅ **Concluído** | Em [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py), a Secretaria escolhe entre anexar o atestado no ato ou gerar evento pendente para o professor. Em [`views/professor.py`](file:///d:/Projects/docente360/views/professor.py), o docente também pode comunicar ausências (`registrado_por = 'Docente'`).                                                                                                                                                                       |
 | **RF02** | **Gestão de Substituições, Candidatura Docente e Aulas Vagas** | ✅ **Concluído** | Painel em [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py#L160-L238) para alocar substituto ou classificar como `"Aula Vaga"`, integrado ao mural de **Substituições Pendentes** no Portal do Docente ([`views/professor.py`](file:///d:/Projects/docente360/views/professor.py#L398-L485)), onde outros professores visualizam faltas sem substituto, checam disponibilidade de horário e se candidatam/assumem a substituição com 1 clique (`candidatar_substituicao_docente`). |
-| **RF03** | **Controle, Pré-visualização e Homologação de Atestados** | ✅ **Concluído** | Upload com sanitização de nomes (`sanitizar_nome_arquivo`) no bucket `atestados`, pré-visualização embutida (imagem/PDF) e fluxo de aprovação ou recusa com justificativa obrigatória (`aprovar_atestado_secretaria` e `recusar_atestado_secretaria`) em [`services/supabase_service.py`](file:///d:/Projects/docente360/services/supabase_service.py#L160-L293). |
-| **RF04** | **Planejamento e Homologação de Reposição de Aulas** | ✅ **Concluído** | Professor ou Secretaria propõem data/horário de reposição e o Coordenador homologa (`status = "Reposta"`) ou solicita ajuste em [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py#L77-L112). |
-| **RF05** | **Dashboard de Indicadores em Tempo Real** | ✅ **Concluído** | Painel em [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py#L25-L125) com filtros interativos (Período, Turma e Disciplina), 5 KPIs em cards + 4 gráficos interativos Plotly (distribuição por status, frequência por docente, ausências por turma/curso e frequência por horário/bloco). |
-| **RF06** | **Central de Relatórios Gerenciais (PDF Paisagem & CSV)** | ✅ **Concluído** | Central avançada em [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py#L116-L272) com filtros múltiplos, resumo executivo e geração de PDF Paisagem via [`utils/pdf_generator.py`](file:///d:/Projects/docente360/utils/pdf_generator.py) + exportação CSV. |
-| **RF07** | **Gestão de Cadastros Base (Professores, Matérias e Turmas)** | ✅ **Concluído** | Componente reutilizável em [`components/cadastros.py`](file:///d:/Projects/docente360/components/cadastros.py) integrado à Secretaria e ao Administrador, com busca em tempo real, validação de duplicidade e exclusão segura. |
-| **RF08** | **Portal do Docente e Vínculo Inteligente de Contas** | ✅ **Concluído** | Implementado em [`views/professor.py`](file:///d:/Projects/docente360/views/professor.py) e [`views/login.py`](file:///d:/Projects/docente360/views/login.py#L41-L116), com vinculação no cadastro ou no primeiro login, KPIs individuais e alertas de pendências/recusas. |
+| **RF03** | **Controle, Pré-visualização e Homologação de Atestados**      | ✅ **Concluído** | Upload com sanitização de nomes (`sanitizar_nome_arquivo`) no bucket `atestados`, pré-visualização embutida (imagem/PDF) e fluxo de aprovação ou recusa com justificativa obrigatória (`aprovar_atestado_secretaria` e `recusar_atestado_secretaria`) em [`services/supabase_service.py`](file:///d:/Projects/docente360/services/supabase_service.py#L160-L293).                                                                                                                                            |
+| **RF04** | **Planejamento e Homologação de Reposição de Aulas**           | ✅ **Concluído** | Professor ou Secretaria propõem data/horário de reposição e o Coordenador homologa (`status = "Reposta"`) ou solicita ajuste em [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py#L77-L112).                                                                                                                                                                                                                                                                                      |
+| **RF05** | **Dashboard de Indicadores em Tempo Real**                     | ✅ **Concluído** | Painel em [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py#L25-L125) com filtros interativos (Período, Turma e Disciplina), 5 KPIs em cards + 4 gráficos interativos Plotly (distribuição por status, frequência por docente, ausências por turma/curso e frequência por horário/bloco).                                                                                                                                                                                         |
+| **RF06** | **Central de Relatórios Gerenciais (PDF Paisagem & CSV)**      | ✅ **Concluído** | Central avançada em [`views/coordenador.py`](file:///d:/Projects/docente360/views/coordenador.py#L116-L272) com filtros múltiplos, resumo executivo e geração de PDF Paisagem via [`utils/pdf_generator.py`](file:///d:/Projects/docente360/utils/pdf_generator.py) + exportação CSV.                                                                                                                                                                                                                        |
+| **RF07** | **Gestão de Cadastros Base (Professores, Matérias e Turmas)**  | ✅ **Concluído** | Componente reutilizável em [`components/cadastros.py`](file:///d:/Projects/docente360/components/cadastros.py) integrado à Secretaria e ao Administrador, com busca em tempo real, validação de duplicidade e exclusão segura.                                                                                                                                                                                                                                                                               |
+| **RF08** | **Portal do Docente e Vínculo Inteligente de Contas**          | ✅ **Concluído** | Implementado em [`views/professor.py`](file:///d:/Projects/docente360/views/professor.py) e [`views/login.py`](file:///d:/Projects/docente360/views/login.py#L41-L116), com vinculação no cadastro ou no primeiro login, KPIs individuais e alertas de pendências/recusas.                                                                                                                                                                                                                                   |
 
 ---
 
 ### 4.3. Regras de Negócio (RN)
 
-| Código | Regra de Negócio | Status | Situação Atual |
-| :---: | :--- | :---: | :--- |
-| **RN01** | **Conflito de Horário do Substituto** | ✅ **Concluído** | O sistema impede alocar o próprio docente ausente e valida conflitos de horário na mesma data e bloco tanto no lançamento de faltas (`verificar_conflito_ausencia`) quanto na alocação de substitutos (`verificar_conflito_substituto`). |
-| **RN02** | **Prazo de Envio de Atestado (48h)** | ✅ **Concluído** | Cálculo automático de dias úteis decorridos (`calcular_prazo_atestado` em [`services/supabase_service.py`](file:///d:/Projects/docente360/services/supabase_service.py#L66-L99)) e alertas contínuos para ausências sem atestado. |
-| **RN03** | **Dupla Homologação (Documental e Pedagógica)** | ✅ **Concluído** | A Secretaria aprova/recusa atestados médicos (devolvendo ao professor com justificativa em caso de recusa) e a Coordenação homologa as reposições pedagógicas. |
-| **RN04** | **Classificação de Pendência / Alerta** | ✅ **Concluído** | Ausências pendentes e atestados recusados exibem banners de alerta prioritários no Portal do Docente e contadores nas abas da Secretaria. |
-| **RN05** | **Sigilo de Dados Sensíveis (LGPD)** | ✅ **Concluído** | Links e arquivos de atestados médicos são restritos aos fluxos autenticados de anexo e homologação, não sendo expostos nos relatórios PDF/CSV gerais. |
-| **RN06** | **Proteção de Integridade Referencial** | ✅ **Concluído** | Funções `excluir_professor`, `excluir_disciplina` e `excluir_turma` em [`services/supabase_service.py`](file:///d:/Projects/docente360/services/supabase_service.py#L451-L528) interceptam violações de FK (`23503`) e impedem perda de histórico. |
+|  Código  | Regra de Negócio                                 |      Status      | Situação Atual                                                                                                                                                                                                                                                                |
+| :------: | :----------------------------------------------- | :--------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RN01** | **Conflito de Horário do Substituto**            | ✅ **Concluído** | O sistema impede alocar o próprio docente ausente e valida conflitos de horário na mesma data e bloco tanto no lançamento de faltas (`verificar_conflito_ausencia`) quanto na alocação de substitutos (`verificar_conflito_substituto`).                                      |
+| **RN02** | **Prazo de Envio de Atestado (48h)**             | ✅ **Concluído** | Cálculo automático de dias úteis decorridos (`calcular_prazo_atestado` em [`services/supabase_service.py`](file:///d:/Projects/docente360/services/supabase_service.py#L66-L99)) e alertas contínuos para ausências sem atestado.                                             |
+| **RN03** | **Dupla Homologação (Documental e Pedagógica)**  | ✅ **Concluído** | A Secretaria aprova/recusa atestados médicos (devolvendo ao professor com justificativa em caso de recusa) e a Coordenação homologa as reposições pedagógicas.                                                                                                                |
+| **RN04** | **Classificação de Pendência / Alerta**          | ✅ **Concluído** | Ausências pendentes e atestados recusados exibem banners de alerta prioritários no Portal do Docente e contadores nas abas da Secretaria.                                                                                                                                     |
+| **RN05** | **Sigilo de Dados Sensíveis (LGPD)**             | ✅ **Concluído** | Links e arquivos de atestados médicos são restritos aos fluxos autenticados de anexo e homologação, não sendo expostos nos relatórios PDF/CSV gerais.                                                                                                                         |
+| **RN06** | **Proteção de Integridade Referencial**          | ✅ **Concluído** | Funções `excluir_professor`, `excluir_disciplina` e `excluir_turma` em [`services/supabase_service.py`](file:///d:/Projects/docente360/services/supabase_service.py#L451-L528) interceptam violações de FK (`23503`) e impedem perda de histórico.                            |
 | **RN07** | **Sincronização e Vínculo Automático de Perfil** | ✅ **Concluído** | Trigger `handle_new_user` em [`banco_dados.sql`](file:///d:/Projects/docente360/banco_dados.sql#L124-L158) e fallback em [`services/auth_service.py`](file:///d:/Projects/docente360/services/auth_service.py#L37-L47) vinculam automaticamente o `professor_id` pelo e-mail. |
 
 ---
 
 ### 4.4. Requisitos Não Funcionais (RNF)
 
-| Código | Requisito | Status | Implementação |
-| :---: | :--- | :---: | :--- |
-| **RNF01** | **Usabilidade e Frontend** | ✅ **Concluído** | Streamlit com design system e abas estilo *pills* sem corte de texto em [`components/styles.py`](file:///d:/Projects/docente360/components/styles.py). |
-| **RNF02** | **Banco de Dados Relacional** | ✅ **Concluído** | PostgreSQL no Supabase com chaves estrangeiras, constraints `UNIQUE` e políticas RLS. |
-| **RNF03** | **Armazenamento Seguro de Arquivos** | ✅ **Concluído** | API do Supabase Storage (`bucket: atestados`) com sanitização ASCII de nomes e detecção de MIME type. |
-| **RNF04** | **Eficiência Operacional (<60s)** | ✅ **Concluído** | Formulários enxutos com atualização imediata de estado via `st.rerun()`. |
-| **RNF05** | **Desempenho** | ✅ **Concluído** | Cliente Supabase em cache (`@st.cache_resource`), query relacional única em [`services/supabase_service.py`](file:///d:/Projects/docente360/services/supabase_service.py#L65-L141) e geração de PDF em memória (`BytesIO`). |
-| **RNF06** | **Segurança e Autenticação** | ✅ **Concluído** | Supabase Auth integrado com metadados de usuário, RLS e segregação RBAC em [`app.py`](file:///d:/Projects/docente360/app.py). |
+|  Código   | Requisito                            |      Status      | Implementação                                                                                                                                                                                                               |
+| :-------: | :----------------------------------- | :--------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RNF01** | **Usabilidade e Frontend**           | ✅ **Concluído** | Streamlit com design system e abas estilo _pills_ sem corte de texto em [`components/styles.py`](file:///d:/Projects/docente360/components/styles.py).                                                                      |
+| **RNF02** | **Banco de Dados Relacional**        | ✅ **Concluído** | PostgreSQL no Supabase com chaves estrangeiras, constraints `UNIQUE` e políticas RLS.                                                                                                                                       |
+| **RNF03** | **Armazenamento Seguro de Arquivos** | ✅ **Concluído** | API do Supabase Storage (`bucket: atestados`) com sanitização ASCII de nomes e detecção de MIME type.                                                                                                                       |
+| **RNF04** | **Eficiência Operacional (<60s)**    | ✅ **Concluído** | Formulários enxutos com atualização imediata de estado via `st.rerun()`.                                                                                                                                                    |
+| **RNF05** | **Desempenho**                       | ✅ **Concluído** | Cliente Supabase em cache (`@st.cache_resource`), query relacional única em [`services/supabase_service.py`](file:///d:/Projects/docente360/services/supabase_service.py#L65-L141) e geração de PDF em memória (`BytesIO`). |
+| **RNF06** | **Segurança e Autenticação**         | ✅ **Concluído** | Supabase Auth integrado com metadados de usuário, RLS e segregação RBAC em [`app.py`](file:///d:/Projects/docente360/app.py).                                                                                               |
 
 ---
 
@@ -146,9 +148,17 @@ d:\Projects\docente360\
 │   ├── styles.py                # Estilização CSS (pills tabs, badges), cabeçalho e barra lateral com Navegação Master
 │   └── cadastros.py             # Módulo reutilizável de gestão de Professores, Matérias/Disciplinas e Turmas
 │
-└── utils/                       # Utilitários e Geradores de Documentos
-    ├── __init__.py
-    └── pdf_generator.py         # Motor ReportLab em formato Paisagem com NumberedCanvas, KPIs e bloco de assinaturas
+├── utils/                       # Utilitários e Geradores de Documentos
+│   ├── __init__.py
+│   └── pdf_generator.py         # Motor ReportLab em formato Paisagem com NumberedCanvas, KPIs e bloco de assinaturas
+│
+└── fases_do_projeto/            # Documentação Formal Completa das 6 Fases do Projeto
+    ├── 01-Fase-1-Levantamento-e-requisitos.md
+    ├── 02-Fase-2-Modelagem-e-prototipacao.md
+    ├── 03-Fase-3-Desenvolvimento-do-modulo.md
+    ├── 04-Fase-4-Testes-e-validacao.md
+    ├── 05-Fase-5-Implantacao-e-treinamento.md
+    └── 06-Fase-6-Avaliacao-e-relatorio-final.md
 ```
 
 ---
@@ -240,6 +250,7 @@ erDiagram
 ## 7. Resumo das Entregas Recentes e Evolução Contínua
 
 ### ✅ Entregas Recentes Concluídas:
+
 - **Mural de Substituições Pendentes e Candidatura Docente (RF02):** No Portal do Docente ([`views/professor.py`](file:///d:/Projects/docente360/views/professor.py)), os professores visualizam faltas sem substituto, checam disponibilidade de horário automaticamente (**RN01**) e se candidatam/assumem a substituição com 1 clique (`candidatar_substituicao_docente`), refletindo imediatamente no Histórico e na aba de Substituições da Secretaria.
 - **Histórico Enxuto com Visualização de Atestado em 1 Clique (RF03):** Tabela de histórico em [`views/secretaria.py`](file:///d:/Projects/docente360/views/secretaria.py) e [`views/admin.py`](file:///d:/Projects/docente360/views/admin.py) exibindo exclusivamente `Data`, `Horário`, `Professor`, `Motivo`, `Status`, `Atestado` (com link clicável **`📄 Ver Atestado`** via `LinkColumn`), `NomeSubstituto` e `AulaVaga`, além de pré-visualizador embutido ao selecionar a linha.
 - **Validação Completa de Conflitos de Agenda (RN01) e Prazo de 48h (RN02):** Implementadas as funções `verificar_conflito_ausencia`, `verificar_conflito_substituto` e `calcular_prazo_atestado` em [`services/supabase_service.py`](file:///d:/Projects/docente360/services/supabase_service.py).

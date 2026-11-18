@@ -154,7 +154,7 @@ O acesso ao sistema Docente360 contempla quatro perfis institucionais utilizando
 | **RNF03** | **Armazenamento de Arquivos** | Armazenamento de comprovantes via **Supabase Storage** (bucket `atestados`) com tratamento de MIME types, *upsert* seguro e sanitização ASCII de nomes de arquivos. |
 | **RNF04** | **Eficiência e Produtividade** | Fluxo de lançamento de ausências e definição de substituição otimizado para conclusão em menos de 60 segundos por ocorrência, com recarregamento reativo via `st.rerun()`. |
 | **RNF05** | **Desempenho** | Conexão com cliente Supabase em cache (`@st.cache_resource`), joins relacionais consolidados em consulta única (`get_ausencias_completas`) e geração de PDF em memória (`BytesIO`). |
-| **RNF06** | **Segurança e Autenticação** | Controle de autenticação e sessão com **Supabase Auth**, senhas criptografadas e roteamento estrito por perfil (`app.py`), além de modo de inspeção multi-setor exclusivo para o perfil Administrador. |
+| **RNF06** | **Segurança e Autenticação** | Controle de autenticação e sessão com **Supabase Auth**, confirmação dupla de senha no cadastro (`views/login.py`), senhas criptografadas e roteamento estrito por perfil (`app.py`), além de modo de inspeção multi-setor exclusivo para o perfil Administrador. |
 
 ---
 
